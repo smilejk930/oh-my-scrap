@@ -19,7 +19,7 @@ const TELEGRAM_TOKEN = "여기에_텔레그램_봇_토큰_입력";
 const FIREBASE_PROJECT_ID = "oh-my-scrap-XXXX"; // Firebase 프로젝트 ID
 const FIREBASE_API_KEY = "여기에_파이어베이스_웹_API_KEY_입력";
 
-// 내 Oh My Scrap 애플리케이션 화면 우측 상단에서 확인한 UID
+// 내 Oh My Scrap 애플리케이션 접속 후 우측 상단의 [UID 복사] 버튼을 눌러 복사한 값
 const TARGET_USER_ID = "여기에_내_오마이스크랩_UID_입력";
 
 function doPost(e) {

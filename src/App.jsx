@@ -2,13 +2,21 @@ import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import InputSection from "./components/InputSection";
 import ScrapList from "./components/ScrapList";
-import { LogOut, PlusCircle, List, ArrowRight } from "lucide-react";
+import { LogOut, PlusCircle, List, Copy, Check } from "lucide-react";
 
 const MainApp = () => {
   // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
   const { user, login, logout } = useAuth();
   // 현재 활성화된 탭 상태 ('input' 또는 'list')
   const [activeTab, setActiveTab] = useState("list");
+  // UID 복사 알림 상태
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUid = () => {
+    navigator.clipboard.writeText(user.uid);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // 로그인하지 않은 경우 로그인 화면 표시
   if (!user) {
@@ -46,10 +54,16 @@ const MainApp = () => {
       <header className="flex-between" style={{ padding: "10px 0", marginBottom: "20px" }}>
         <h1>{activeTab === "input" ? "스크랩 추가" : "내 보관함"}</h1>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }} title="Telegram Bot 연동 시 사용할 본인의 고유 ID입니다.">
-            UID: {user.uid.slice(0, 5)}...
-          </span>
-          <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleCopyUid} 
+            title="텔레그램 봇 연동을 위한 전체 UID 복사"
+            style={{ padding: "6px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            {copied ? <Check size={14} color="var(--accent-color)" /> : <Copy size={14} />}
+            {copied ? "복사됨!" : "UID 복사"}
+          </button>
+          <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }} title="로그아웃">
             <LogOut size={20} />
           </button>
         </div>
