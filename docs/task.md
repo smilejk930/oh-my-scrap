@@ -57,5 +57,5 @@
   - [x] PC 환경에서 분할 화면 로직 구성
   - [x] 기능별 한글 커밋 작성
 
-- [ ] **Phase 4: 배포 및 확인**
-  - [ ] Firebase Hosting 재배포
+- [x] **Phase 4: 배포 및 확인**
+  - [x] Firebase Hosting 재배포
