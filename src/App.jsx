@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import InputSection from "./components/InputSection";
 import ScrapList from "./components/ScrapList";
 import { LogOut, PlusCircle, List, Copy, Check } from "lucide-react";
+import { motion } from "framer-motion";
 
 const MainApp = () => {
   // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
@@ -163,14 +164,41 @@ const MainApp = () => {
                 className="btn btn-secondary" 
                 onClick={handleCopyUid} 
                 title="텔레그램 봇 연동을 위한 전체 UID 복사"
-                style={{ padding: "6px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+                style={{ 
+                  padding: "8px 14px", 
+                  fontSize: "12px", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "6px",
+                  borderRadius: "20px",
+                  border: "none",
+                  background: "rgba(0, 0, 0, 0.04)",
+                  color: "var(--text-primary)",
+                  fontWeight: "600"
+                }}
               >
                 {copied ? <Check size={14} color="var(--accent-color)" /> : <Copy size={14} />}
-                {copied ? "복사됨!" : "UID 복사"}
+                {copied ? "복사됨" : "UID 복사"}
               </button>
-              <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }} title="로그아웃">
+              <motion.button 
+                whileTap={{ scale: 0.92 }}
+                onClick={logout} 
+                style={{ 
+                  width: "38px", 
+                  height: "38px", 
+                  borderRadius: "50%",
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  background: "rgba(0, 0, 0, 0.04)",
+                  border: "none",
+                  color: "#3A3A3C",
+                  cursor: "pointer"
+                }} 
+                title="로그아웃"
+              >
                 <LogOut size={20} />
-              </button>
+              </motion.button>
             </div>
           </header>
 

@@ -77,18 +77,36 @@ const InputSection = ({ onSuccess }) => {
             disabled={loading}
             required
           />
-          <button 
+          <motion.button 
             type="submit" 
-            className="btn" 
             style={{ 
-              position: "absolute", right: "5px", top: "5px", 
-              padding: "8px", borderRadius: "10px",
-              display: "flex", alignItems: "center", justifyContent: "center"
+              position: "absolute", 
+              right: "6px", 
+              top: "50%", 
+              y: "-50%", // motion's version of translateY(-50%)
+              width: "38px",
+              height: "38px",
+              borderRadius: "50%",
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center",
+              border: "none",
+              cursor: url && !loading ? "pointer" : "default",
+              backgroundColor: url ? "var(--accent-color)" : "rgba(0, 0, 0, 0.04)",
+              color: url ? "#ffffff" : "#A1A1A6",
+              boxShadow: url && !loading ? "0 4px 12px rgba(0, 113, 227, 0.2)" : "none",
+              transition: { duration: 0.2 }
             }}
-            disabled={loading}
+            whileHover={url && !loading ? { scale: 1.08, backgroundColor: "#0077ED" } : {}}
+            whileTap={url && !loading ? { scale: 0.92 } : {}}
+            disabled={loading || !url}
           >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-          </button>
+            {loading ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              <Send size={18} />
+            )}
+          </motion.button>
         </div>
       </form>
 
