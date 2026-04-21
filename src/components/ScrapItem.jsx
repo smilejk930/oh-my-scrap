@@ -1,18 +1,31 @@
 import React, { useState } from "react";
-import { ExternalLink, ChevronDown, ChevronUp, Clock, Tag } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronUp, Clock, Tag, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { scrapeUrl } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { db } from "../firebase/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, deleteDoc } from "firebase/firestore";
 
-const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect }) => {
+const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const createdAt = scrap.createdAt?.toDate();
   const dateStr = createdAt ? format(createdAt, "yy.MM.dd") : "방금 전";
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (window.confirm("정말로 삭제하시겠습니까?")) {
+      try {
+        await deleteDoc(doc(db, "scraps", scrap.id));
+        if (onDelete) onDelete(scrap.id);
+      } catch (error) {
+        console.error(error);
+        alert("삭제 중 오류가 발생했습니다.");
+      }
+    }
+  };
 
   // 텔레그램 등을 통해 들어온 분석 안된 데이터 처리
   const handleDelayedAnalysis = async (e) => {
@@ -61,8 +74,11 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect }) => {
               <Tag size={40} opacity={0.2} />
             </div>
           )}
-          <div style={{ position: "absolute", top: "10px", right: "10px" }}>
-            <button className="btn" style={{ padding: "8px", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "#0071E3" }} onClick={handleOpen}>
+          <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "6px" }}>
+            <button className="btn" style={{ padding: "8px", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "#FF3B30", border: "none" }} onClick={handleDelete}>
+              <Trash2 size={18} />
+            </button>
+            <button className="btn" style={{ padding: "8px", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "#0071E3", border: "none" }} onClick={handleOpen}>
               <ExternalLink size={18} />
             </button>
           </div>
@@ -119,17 +135,22 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect }) => {
             <span style={{ fontSize: "11px", color: "#86868B", marginLeft: "10px" }}>{dateStr}</span>
           </div>
         </div>
-        {!scrap.title ? (
-          <button className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={handleDelayedAnalysis}>
-            {isAnalyzing ? "..." : "분석"}
-          </button>
-        ) : (
-          !isDesktop && (
-            <button style={{ background: "none", border: "none", color: "#C7C7CC" }}>
-              {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {!scrap.title ? (
+            <button className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={handleDelayedAnalysis}>
+              {isAnalyzing ? "..." : "분석"}
             </button>
-          )
-        )}
+          ) : (
+            !isDesktop && (
+              <button style={{ background: "none", border: "none", color: "#C7C7CC" }}>
+                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+            )
+          )}
+          <button className="btn btn-secondary" style={{ padding: "6px", color: "#FF3B30", border: "none", background: "none" }} onClick={handleDelete}>
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
 
       {!isDesktop && isExpanded && scrap.fullSummary && (

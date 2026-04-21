@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase/firebase";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import ScrapItem from "./ScrapItem";
 import { Search, LayoutGrid, List as ListIcon, Calendar } from "lucide-react";
@@ -135,6 +135,11 @@ const ScrapList = () => {
                   isDesktop={isDesktop}
                   isSelected={selectedScrap?.id === scrap.id}
                   onSelect={() => setSelectedScrap(scrap)}
+                  onDelete={(id) => {
+                    if (selectedScrap?.id === id) {
+                      setSelectedScrap(null);
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -165,13 +170,32 @@ const ScrapList = () => {
                     {selectedScrap.fullSummary || "요약 정보가 없습니다."}
                   </p>
                 </div>
-                <button 
-                  className="btn" 
-                  style={{ width: "100%", marginTop: "20px", padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} 
-                  onClick={() => window.open(selectedScrap.url, "_blank")}
-                >
-                  원문 링크 열기
-                </button>
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                  <button 
+                    className="btn" 
+                    style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "var(--primary-color)", color: "white" }} 
+                    onClick={() => window.open(selectedScrap.url, "_blank")}
+                  >
+                    원문 보기
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "none" }} 
+                    onClick={async () => {
+                      if (window.confirm("정말로 삭제하시겠습니까?")) {
+                        try {
+                          await deleteDoc(doc(db, "scraps", selectedScrap.id));
+                          setSelectedScrap(null);
+                        } catch (error) {
+                          console.error(error);
+                          alert("삭제 중 오류가 발생했습니다.");
+                        }
+                      }
+                    }}
+                  >
+                    삭제하기
+                  </button>
+                </div>
               </div>
             </div>
           )}
