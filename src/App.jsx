@@ -13,11 +13,29 @@ const MainApp = () => {
   // 로그인하지 않은 경우 로그인 화면 표시
   if (!user) {
     return (
-      <div className="container" style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="card" style={{ textAlign: "center", width: "100%", maxWidth: "400px" }}>
-          <h1 style={{ marginBottom: "10px" }}>Oh My Scrap</h1>
-          <p style={{ marginBottom: "30px" }}>나만의 유용한 URL 저장소</p>
-          <button className="btn" onClick={login} style={{ width: "100%" }}>Google로 로그인</button>
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "lightgray" }}>
+        <div style={{flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px", background: "url('https://source.unsplash.com/random/1080x1920/?abstract,white') center/cover", position: "relative"}}>
+          <div style={{position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "linear-gradient(to bottom, rgba(249,249,251,0.2), #f9f9fb)"}}></div>
+          <div style={{position: "relative", zIndex: 1, textAlign: "center", width: "100%"}}>
+            <h1 style={{ fontSize: "56px", fontWeight: "700", letterSpacing: "-0.04em", lineHeight: "1.1", marginBottom: "16px", color: "var(--text-primary)" }}>
+              Oh My Scrap
+            </h1>
+            <p style={{ fontSize: "20px", color: "var(--text-secondary)", letterSpacing: "-0.01em", marginBottom: "60px", fontWeight: "500" }}>
+              Design your knowledge.
+            </p>
+            <button 
+              className="btn" 
+              onClick={login} 
+              style={{ 
+                width: "100%", maxWidth: "320px", padding: "18px", fontSize: "17px", 
+                background: "rgba(255,255,255,0.9)", color: "var(--text-primary)", 
+                border: "1px solid rgba(172, 179, 184, 0.3)", backdropFilter: "blur(20px)",
+                boxShadow: "var(--shadow-ambient)"
+              }}
+            >
+              Sign in with Google
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -27,9 +45,14 @@ const MainApp = () => {
     <div className="container">
       <header className="flex-between" style={{ padding: "10px 0", marginBottom: "20px" }}>
         <h1>{activeTab === "input" ? "스크랩 추가" : "내 보관함"}</h1>
-        <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }}>
-          <LogOut size={20} />
-        </button>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }} title="Telegram Bot 연동 시 사용할 본인의 고유 ID입니다.">
+            UID: {user.uid.slice(0, 5)}...
+          </span>
+          <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }}>
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       {activeTab === "input" ? (
