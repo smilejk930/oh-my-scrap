@@ -146,7 +146,7 @@ const ScrapList = () => {
           </div>
 
           {isDesktop && selectedScrap && (
-            <div className="scrap-right-pane" style={{ flex: 1, position: "sticky", top: "160px", height: "fit-content", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
+            <div className="scrap-right-pane" style={{ flex: 1, position: "sticky", top: "20px", height: "fit-content", maxHeight: "calc(100vh - 120px)", overflowY: "auto" }}>
               <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.3s ease", position: "relative" }}>
                 <button 
                   onClick={() => setSelectedScrap(null)}

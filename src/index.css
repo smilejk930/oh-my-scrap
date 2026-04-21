@@ -149,7 +149,103 @@ input:focus {
 }
 
 /* Mobile Responsive */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .container { padding: 15px; }
   h1 { font-size: 28px; }
+  
+  .desktop-only { display: none !important; }
+  
+  /* spacer for bottom nav */
+  .mobile-bottom-spacer { height: 80px; }
 }
+
+@media (min-width: 769px) {
+  .mobile-only { display: none !important; }
+  
+  /* Desktop Layout */
+  .app-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .sidebar {
+    width: 260px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: var(--glass);
+    border-right: var(--ghost-border);
+    display: flex;
+    flex-direction: column;
+    padding: 30px 20px;
+    z-index: 10;
+  }
+  
+  .sidebar-logo {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 40px;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+  }
+  
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+  
+  .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--border-radius-lg);
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    text-align: left;
+  }
+  
+  .sidebar-nav-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text-primary);
+  }
+  
+  .sidebar-nav-item.active {
+    background: var(--surface-highest);
+    color: var(--accent-color);
+  }
+  
+  .sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 60px;
+    background-color: var(--bg-color);
+  }
+  
+  /* Remove container constraint on desktop as we want fluid main area or centered wide area */
+  .main-content .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0;
+  }
+  
+  .desktop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+  }
+}
+

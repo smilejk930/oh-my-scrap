@@ -57,33 +57,83 @@ const MainApp = () => {
   }
 
   return (
-    <div className="container">
-      <header className="flex-between" style={{ padding: "10px 0", marginBottom: "20px" }}>
-        <h1>{activeTab === "input" ? "스크랩 추가" : "내 보관함"}</h1>
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+    <div className="app-layout">
+      {/* --- Desktop Sidebar --- */}
+      <aside className="sidebar desktop-only">
+        <div className="sidebar-logo">Oh My Scrap</div>
+        <nav className="sidebar-nav">
+          <button 
+            className={`sidebar-nav-item ${activeTab === "input" ? "active" : ""}`}
+            onClick={() => setActiveTab("input")}
+          >
+            <PlusCircle size={20} />
+            <span>스크랩 추가</span>
+          </button>
+          <button 
+            className={`sidebar-nav-item ${activeTab === "list" ? "active" : ""}`}
+            onClick={() => setActiveTab("list")}
+          >
+            <List size={20} />
+            <span>내 보관함</span>
+          </button>
+        </nav>
+        <div className="sidebar-footer">
           <button 
             className="btn btn-secondary" 
             onClick={handleCopyUid} 
             title="텔레그램 봇 연동을 위한 전체 UID 복사"
-            style={{ padding: "6px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+            style={{ padding: "10px 14px", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
           >
-            {copied ? <Check size={14} color="var(--accent-color)" /> : <Copy size={14} />}
-            {copied ? "복사됨!" : "UID 복사"}
+            {copied ? <Check size={16} color="var(--accent-color)" /> : <Copy size={16} />}
+            {copied ? "개인 식별자 복사됨" : "개인 식별자 (UID) 복사"}
           </button>
-          <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }} title="로그아웃">
-            <LogOut size={20} />
+          <button className="btn btn-secondary" onClick={logout} style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }} title="로그아웃">
+            <LogOut size={16} />
+            <span>로그아웃</span>
           </button>
         </div>
-      </header>
+      </aside>
 
-      {activeTab === "input" ? (
-        <InputSection onSuccess={() => setActiveTab("list")} />
-      ) : (
-        <ScrapList />
-      )}
+      {/* --- Main Content Area --- */}
+      <main className="main-content">
+        <div className="container">
+          {/* Mobile Header (Hidden on Desktop) */}
+          <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px" }}>
+            <h1>{activeTab === "input" ? "스크랩 추가" : "내 보관함"}</h1>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleCopyUid} 
+                title="텔레그램 봇 연동을 위한 전체 UID 복사"
+                style={{ padding: "6px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                {copied ? <Check size={14} color="var(--accent-color)" /> : <Copy size={14} />}
+                {copied ? "복사됨!" : "UID 복사"}
+              </button>
+              <button className="btn btn-secondary" onClick={logout} style={{ padding: "8px" }} title="로그아웃">
+                <LogOut size={20} />
+              </button>
+            </div>
+          </header>
 
-      {/* 하단 내비게이션 바 (모바일 특화, Glassmorphism) */}
-      <nav style={{
+          {/* Desktop Title (Hidden on Mobile) */}
+          <div className="desktop-header desktop-only">
+            <h1>{activeTab === "input" ? "새로운 스크랩 추가하기" : "내 보관함"}</h1>
+          </div>
+
+          {/* Content Route */}
+          {activeTab === "input" ? (
+            <InputSection onSuccess={() => setActiveTab("list")} />
+          ) : (
+            <ScrapList />
+          )}
+
+          <div className="mobile-only mobile-bottom-spacer"></div>
+        </div>
+      </main>
+
+      {/* --- Mobile Bottom Navigation --- */}
+      <nav className="mobile-only" style={{
         position: "fixed",
         bottom: 0,
         left: 0,
@@ -118,9 +168,6 @@ const MainApp = () => {
           <span style={{ fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em" }}>보관함</span>
         </button>
       </nav>
-      
-      {/* Spacer for bottom nav */}
-      <div style={{ height: "80px" }}></div>
     </div>
   );
 };
