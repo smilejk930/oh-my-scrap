@@ -180,7 +180,7 @@ const ScrapList = () => {
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
                   <button 
                     className="btn" 
-                    style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "var(--primary-color)", color: "white" }} 
+                    style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} 
                     onClick={() => window.open(selectedScrap.url, "_blank")}
                   >
                     원문 보기
