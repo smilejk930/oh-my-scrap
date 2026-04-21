@@ -33,7 +33,14 @@ const MainApp = () => {
             </p>
             <button 
               className="btn" 
-              onClick={login} 
+              onClick={async () => {
+                try {
+                  await login();
+                } catch (error) {
+                  console.error("Login failed:", error);
+                  alert("로그인 중 문제가 발생했습니다. 브라우저 팝업 차단을 해제하거나, 운영망(웹앱 배포 주소)으로 접속했는지 확인해주세요.");
+                }
+              }} 
               style={{ 
                 width: "100%", maxWidth: "320px", padding: "18px", fontSize: "17px", 
                 background: "rgba(255,255,255,0.9)", color: "var(--text-primary)", 

@@ -5,15 +5,37 @@
  */
 export const scrapeUrl = async (url) => {
   try {
-    // AllOrigins CORS Proxy 사용
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl);
-    const data = await response.json();
-    
-    if (!data.contents) throw new Error("Could not fetch page content");
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
+
+    let html = null;
+    let lastError = null;
+
+    for (const proxyUrl of proxies) {
+      try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        html = await response.text();
+        break; // 성공 시 루프 중단
+      } catch (e) {
+        lastError = e;
+        continue; // 실패 시 다음 프록시 시도
+      }
+    }
+
+    // 만약 앞의 프록시들이 모두 실패했다면 마지막으로 allorigins.win 시도 (JSON 응답)
+    if (!html) {
+      const allOriginsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const response = await fetch(allOriginsUrl);
+      const data = await response.json();
+      if (!data.contents) throw lastError || new Error("All proxies failed");
+      html = data.contents;
+    }
 
     const parser = new DOMParser();
-    const doc = parser.parseFromString(data.contents, "text/html");
+    const doc = parser.parseFromString(html, "text/html");
 
     // 메타데이터 추출
     const getMeta = (property) => 
