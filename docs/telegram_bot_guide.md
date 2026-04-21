@@ -42,8 +42,10 @@ function doPost(e) {
         sendMessage(message.chat.id, "URL을 찾을 수 없습니다.");
       }
     }
+    return ContentService.createTextOutput("OK");
   } catch (err) {
     console.error(err);
+    return ContentService.createTextOutput("Error");
   }
 }
 
