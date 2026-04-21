@@ -34,6 +34,28 @@
 - [x] firebase Spark plan을 사용
 
 ## 기능 개발 방법
-- [ ] 기능 개발 단위마다 commit 진행
-- [ ] commit 메세지는 한글로 작성
-- [ ] 소스에는 이해하기 쉽게 한글로 주석달기
+- [x] 기능 개발 단위마다 commit 진행
+- [x] commit 메세지는 한글로 작성
+- [x] 소스에는 이해하기 쉽게 한글로 주석달기
+
+---
+## 진행 단계 (Phase)
+
+- [x] **Phase 1: Git 및 소스 정리 (초기화)**
+  - [x] 소스 파일 한글 주석 추가 (App, ScrapItem, InputSection, AuthContext, ScrapList 등)
+  - [x] 초기 기능 한글 커밋 (feat: 기본 프로젝트 구조 및 필수 기초 컴포넌트(주석 포함) 세팅)
+
+- [x] **Phase 2: Stitch MCP 활용 (진행중)**
+  - [x] Stitch MCP `create_project` 프로젝트 생성 (`oh-my-scrap`)
+  - [x] `generate_screen_from_text` 로 메인/리스트/상세 스크린 생성 (Add Scrap, My Scraps 화면 완료)
+  - [x] 디자인 톤앤매너(Pure Archive / Apple-like) 셋팅
+  - [ ] MCP 결과물에 맞춰 기존 React 컴포넌트 스타일 적용/리팩토링
+
+- [ ] **Phase 3: 기능 로직 강화**
+  - [ ] 태그 기반의 검색어 필터링 지원
+  - [ ] 날짜 필터 로직에 '한달 이후' 항목 추가
+  - [ ] PC 환경에서 분할 화면 로직 구성
+  - [ ] 기능별 한글 커밋 작성
+
+- [ ] **Phase 4: 배포 및 확인**
+  - [ ] Firebase Hosting 재배포
