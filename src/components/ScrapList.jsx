@@ -13,6 +13,14 @@ const ScrapList = () => {
   const [searchTerm, setSearchTerm] = useState(""); // 검색어 상태
   const [filterDate, setFilterDate] = useState("all"); // 날짜 필터 상태 ('today', 'week', 'month', 'older', 'all')
   const [loading, setLoading] = useState(true); // 데이터 로딩 상태
+  const [selectedScrap, setSelectedScrap] = useState(null); // PC 화면에서 선택된 스크랩 상세 보기
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768); // 데스크톱 화면 여부
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -116,10 +124,57 @@ const ScrapList = () => {
           데이터가 없습니다.
         </div>
       ) : (
-        <div className={viewMode === "list" ? "scrap-list" : "scrap-grid"}>
-          {filteredScraps.map(scrap => (
-            <ScrapItem key={scrap.id} scrap={scrap} mode={viewMode} />
-          ))}
+        <div className="scrap-container" style={{ display: isDesktop ? "flex" : "block", gap: "20px" }}>
+          <div className="scrap-left-pane" style={{ flex: isDesktop && selectedScrap ? 1 : "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div className={viewMode === "list" ? "scrap-list" : "scrap-grid"}>
+              {filteredScraps.map(scrap => (
+                <ScrapItem 
+                  key={scrap.id} 
+                  scrap={scrap} 
+                  mode={viewMode} 
+                  isDesktop={isDesktop}
+                  isSelected={selectedScrap?.id === scrap.id}
+                  onSelect={() => setSelectedScrap(scrap)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {isDesktop && selectedScrap && (
+            <div className="scrap-right-pane" style={{ flex: 1, position: "sticky", top: "160px", height: "fit-content", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
+              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.3s ease" }}>
+                {selectedScrap.thumbnail && (
+                  <img 
+                    src={selectedScrap.thumbnail} 
+                    alt="thumbnail" 
+                    style={{ width: "100%", height: "240px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }} 
+                  />
+                )}
+                <h2 style={{ fontSize: "22px", marginTop: "20px", fontWeight: "700" }}>
+                  {selectedScrap.title || "분석되지 않은 스크랩"}
+                </h2>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
+                  {selectedScrap.tags?.map(t => (
+                    <span key={t} style={{ fontSize: "12px", background: "rgba(0,113,227,0.1)", color: "#0071E3", padding: "4px 10px", borderRadius: "12px" }}>
+                      #{t}
+                    </span>
+                  ))}
+                </div>
+                <div style={{ marginTop: "20px", padding: "20px", background: "rgba(0,0,0,0.02)", borderRadius: "12px" }}>
+                  <p style={{ fontSize: "15px", lineHeight: "1.6", color: "#333", whiteSpace: "pre-wrap" }}>
+                    {selectedScrap.fullSummary || "요약 정보가 없습니다."}
+                  </p>
+                </div>
+                <button 
+                  className="btn" 
+                  style={{ width: "100%", marginTop: "20px", padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} 
+                  onClick={() => window.open(selectedScrap.url, "_blank")}
+                >
+                  원문 링크 열기
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

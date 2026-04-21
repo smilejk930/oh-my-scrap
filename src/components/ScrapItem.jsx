@@ -7,7 +7,7 @@ import { analyzeContent } from "../services/gemini";
 import { db } from "../firebase/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 
-const ScrapItem = ({ scrap, mode }) => {
+const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -90,9 +90,15 @@ const ScrapItem = ({ scrap, mode }) => {
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="card" 
-      style={{ padding: "12px", marginBottom: "0" }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      className={`card ${isSelected ? "selected" : ""}`} 
+      style={{ 
+        padding: "12px", 
+        marginBottom: "0", 
+        border: isSelected ? "2px solid #0071E3" : "1px solid rgba(0,0,0,0.05)",
+        cursor: "pointer",
+        transition: "all 0.2s ease"
+      }}
+      onClick={() => isDesktop ? onSelect() : setIsExpanded(!isExpanded)}
     >
       <div className="scrap-item-row">
         {scrap.thumbnail ? (
@@ -118,13 +124,15 @@ const ScrapItem = ({ scrap, mode }) => {
             {isAnalyzing ? "..." : "분석"}
           </button>
         ) : (
-          <button style={{ background: "none", border: "none", color: "#C7C7CC" }}>
-            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
+          !isDesktop && (
+            <button style={{ background: "none", border: "none", color: "#C7C7CC" }}>
+              {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
+          )
         )}
       </div>
 
-      {isExpanded && scrap.fullSummary && (
+      {!isDesktop && isExpanded && scrap.fullSummary && (
         <motion.div 
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
