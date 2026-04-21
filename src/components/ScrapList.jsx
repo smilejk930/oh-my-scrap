@@ -3,7 +3,7 @@ import { db } from "../firebase/firebase";
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import ScrapItem from "./ScrapItem";
-import { Search, LayoutGrid, List as ListIcon, Calendar, X } from "lucide-react";
+import { Search, LayoutGrid, List as ListIcon, Calendar, X, Loader2 } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 
 const ScrapList = () => {
@@ -68,7 +68,12 @@ const ScrapList = () => {
     return matchesSearch && matchesDate;
   });
 
-  if (loading) return <p style={{ textAlign: "center", padding: "40px" }}>Loading...</p>;
+  if (loading) return (
+    <div style={{ display: "flex", justifyContent: "center", padding: "60px", color: "var(--accent-color)" }}>
+      <Loader2 className="animate-spin" size={32} />
+    </div>
+  );
+
 
   return (
     <div className="flex-column" style={{ gap: "20px" }}>
@@ -147,7 +152,7 @@ const ScrapList = () => {
 
           {isDesktop && selectedScrap && (
             <div className="scrap-right-pane" style={{ flex: 1, position: "sticky", top: "20px", height: "fit-content", maxHeight: "calc(100vh - 120px)", overflowY: "auto" }}>
-              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.3s ease", position: "relative" }}>
+              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.2s ease-out", position: "relative" }}>
                 <button 
                   onClick={() => setSelectedScrap(null)}
                   style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(255,255,255,0.9)", border: "none", borderRadius: "50%", padding: "6px", cursor: "pointer", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}
