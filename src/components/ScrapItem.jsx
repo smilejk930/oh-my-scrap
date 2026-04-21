@@ -61,6 +61,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
     return (
       <motion.div 
         layout
+        transition={{ layout: { duration: 0.15, ease: "easeOut" } }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="card" 
@@ -104,6 +105,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
   return (
     <motion.div 
       layout
+      transition={{ layout: { duration: 0.12, ease: "easeOut" } }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={`card ${isSelected ? "selected" : ""}`} 
@@ -128,8 +130,8 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           <h3 className="scrap-title">{scrap.title || "Unanalyzed Scrap"}</h3>
           <div className="flex-between">
             <div style={{ display: "flex", gap: "5px", overflow: "hidden" }}>
-              {scrap.tags?.map(tag => (
-                <span key={tag} style={{ fontSize: "10px", background: "rgba(0,0,0,0.05)", padding: "1px 6px", borderRadius: "8px", color: "#86868B" }}>#{tag}</span>
+              {scrap.tags?.filter(tag => tag && tag.trim()).map((tag, index) => (
+                <span key={`${tag}-${index}`} style={{ fontSize: "10px", background: "rgba(0,0,0,0.05)", padding: "1px 6px", borderRadius: "8px", color: "#86868B" }}>#{tag}</span>
               ))}
             </div>
             <span style={{ fontSize: "11px", color: "#86868B", marginLeft: "10px" }}>{dateStr}</span>

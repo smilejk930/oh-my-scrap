@@ -152,7 +152,7 @@ const ScrapList = () => {
 
           {isDesktop && selectedScrap && (
             <div className="scrap-right-pane" style={{ flex: 1, position: "sticky", top: "20px", height: "fit-content", maxHeight: "calc(100vh - 120px)", overflowY: "auto" }}>
-              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.2s ease-out", position: "relative" }}>
+              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.15s ease", position: "relative" }}>
                 <button 
                   onClick={() => setSelectedScrap(null)}
                   style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(255,255,255,0.9)", border: "none", borderRadius: "50%", padding: "6px", cursor: "pointer", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}
@@ -171,8 +171,8 @@ const ScrapList = () => {
                   {selectedScrap.title || "Unanalyzed Scrap"}
                 </h2>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
-                  {selectedScrap.tags?.map(t => (
-                    <span key={t} style={{ fontSize: "12px", background: "rgba(0,113,227,0.1)", color: "#0071E3", padding: "4px 10px", borderRadius: "12px" }}>
+                  {selectedScrap.tags?.filter(t => t && t.trim()).map((t, index) => (
+                    <span key={`${t}-${index}`} style={{ fontSize: "12px", background: "rgba(0,113,227,0.1)", color: "#0071E3", padding: "4px 10px", borderRadius: "12px" }}>
                       #{t}
                     </span>
                   ))}

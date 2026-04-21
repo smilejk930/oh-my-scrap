@@ -8,7 +8,7 @@ import { Loader2, Send, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const InputSection = ({ onSuccess }) => {
-  const { user } = useAuth(); // 현재 로그인한 사용자 정보
+  const { user, preferredLanguage } = useAuth(); // 현재 로그인한 사용자 정보 및 언어 설정
   const [url, setUrl] = useState(""); // 입력된 URL 상태
   const [loading, setLoading] = useState(false); // 로딩 상태 제어 (스크래핑 로직 진행 중 버튼 비활성화용)
   const [status, setStatus] = useState(""); // 현재 진행 상태 텍스트 (스크래핑 중, 분석 중 등)
@@ -28,7 +28,7 @@ const InputSection = ({ onSuccess }) => {
       
       // 2. Gemini Analysis: 추출된 내용을 바탕으로 대표 문구(title)와 태그, 전체 요약 생성
       setStatus("AI is analyzing content...");
-      const analysis = await analyzeContent(content);
+      const analysis = await analyzeContent(content, preferredLanguage);
       
       const newScrap = {
         userId: user.uid,
@@ -62,8 +62,8 @@ const InputSection = ({ onSuccess }) => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className="card"
     >
       <form onSubmit={handleSubmit} className="flex-column">
@@ -110,13 +110,14 @@ const InputSection = ({ onSuccess }) => {
         </div>
       </form>
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {status && (
           <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ marginTop: "15px", textAlign: "center", fontSize: "14px", fontWeight: "500" }}
+            key="status-text"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            style={{ marginTop: "15px", textAlign: "center", fontSize: "14px", fontWeight: "500", color: "var(--accent-color)" }}
           >
             {status}
           </motion.p>
@@ -124,6 +125,7 @@ const InputSection = ({ onSuccess }) => {
 
         {preview && (
           <motion.div 
+            key="preview-card"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             style={{ 
@@ -136,8 +138,8 @@ const InputSection = ({ onSuccess }) => {
               <div className="scrap-content">
                 <h3 className="scrap-title" style={{ fontSize: "18px", color: "#0071E3" }}>{preview.title}</h3>
                 <div style={{ display: "flex", gap: "5px", marginTop: "5px" }}>
-                  {preview.tags?.map(tag => (
-                    <span key={tag} style={{ fontSize: "11px", background: "#eee", padding: "2px 8px", borderRadius: "10px" }}>#{tag}</span>
+                  {preview.tags?.filter(tag => tag && tag.trim()).map((tag, index) => (
+                    <span key={`${tag}-${index}`} style={{ fontSize: "11px", background: "#eee", padding: "2px 8px", borderRadius: "10px" }}>#{tag}</span>
                   ))}
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { auth, googleProvider } from "../firebase/firebase";
+import { auth, googleProvider, db } from "../firebase/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -11,17 +12,55 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
+    let unsubscribeSettings;
+    const unsubscribeAuth = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        // 기본 유저 정보 설정
+        setUser(authUser);
+        
+        // Firestore에서 유저 설정 실시간 감시 (언어 등)
+        const userDocRef = doc(db, "users", authUser.uid);
+        unsubscribeSettings = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUser(prev => ({ ...prev, settings: docSnap.data() }));
+          } else {
+            // 초기 설정 생성 (기본 언어: 영어)
+            const initialSettings = { language: "en" };
+            setDoc(userDocRef, initialSettings);
+            setUser(prev => ({ ...prev, settings: initialSettings }));
+          }
+          setLoading(false);
+        });
+      } else {
+        setUser(null);
+        if (unsubscribeSettings) unsubscribeSettings();
+        setLoading(false);
+      }
     });
-    return unsubscribe;
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSettings) unsubscribeSettings();
+    };
   }, []);
 
   const login = () => signInWithPopup(auth, googleProvider);
   const logout = () => signOut(auth);
 
-  const value = { user, login, logout, loading };
+  const updateLanguage = async (lang) => {
+    if (!user) return;
+    const userDocRef = doc(db, "users", user.uid);
+    await setDoc(userDocRef, { language: lang }, { merge: true });
+  };
+
+  const value = { 
+    user, 
+    login, 
+    logout, 
+    updateLanguage,
+    preferredLanguage: user?.settings?.language || "en",
+    loading 
+  };
 
   return (
     <AuthContext.Provider value={value}>

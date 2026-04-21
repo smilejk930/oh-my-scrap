@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 
 const MainApp = () => {
   // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
-  const { user, login, logout } = useAuth();
+  const { user, login, logout, updateLanguage, preferredLanguage } = useAuth();
   // 현재 활성화된 탭 상태 ('input' 또는 'list')
   const [activeTab, setActiveTab] = useState("input");
   // UID 복사 알림 상태
@@ -18,6 +18,23 @@ const MainApp = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const LanguageToggle = () => (
+    <div className="language-toggle">
+      <button 
+        className={`lang-btn ${preferredLanguage === "en" ? "active" : ""}`}
+        onClick={() => updateLanguage("en")}
+      >
+        EN
+      </button>
+      <button 
+        className={`lang-btn ${preferredLanguage === "ko" ? "active" : ""}`}
+        onClick={() => updateLanguage("ko")}
+      >
+        KO
+      </button>
+    </div>
+  );
 
   // 로그인하지 않은 경우 로그인 화면 표시 (Stitch 디자인 적용)
   if (!user) {
@@ -137,6 +154,7 @@ const MainApp = () => {
           </button>
         </nav>
         <div className="sidebar-footer">
+          <LanguageToggle />
           <button 
             className="btn btn-secondary" 
             onClick={handleCopyUid} 
@@ -157,9 +175,12 @@ const MainApp = () => {
       <main className="main-content">
         <div className="container">
           {/* Mobile Header (Hidden on Desktop) */}
-          <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px" }}>
-            <h1>{activeTab === "input" ? "Add Scrap" : "My Archive"}</h1>
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "flex-start" }}>
+            <div className="mobile-header-left">
+              <h1 style={{ marginBottom: "5px" }}>{activeTab === "input" ? "Add Scrap" : "My Archive"}</h1>
+              <LanguageToggle />
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", paddingTop: "5px" }}>
               <button 
                 className="btn btn-secondary" 
                 onClick={handleCopyUid} 

@@ -34,10 +34,13 @@ const generateWithRetry = async (prompt, retries = 3) => {
 /**
  * URL의 본문 내용을 분석하여 요약본과 태그를 생성합니다.
  * @param {string} content - URL에서 추출된 텍스트 내용
+ * @param {string} language - 분석 결과 언어 ('en' or 'ko')
  * @returns {Promise<{title: string, tags: string[], fullSummary: string}>}
  */
-export const analyzeContent = async (content) => {
+export const analyzeContent = async (content, language = "en") => {
   try {
+    const isKorean = language === "ko";
+    
     const prompt = `
       Analyze the following webpage content and return it in JSON format.
       Content: ${content.substring(0, 5000)} // Analyze up to 5000 characters
@@ -50,9 +53,10 @@ export const analyzeContent = async (content) => {
       }
       
       Requirements:
-      - The 'title' must be very intuitive and within 40 characters in English.
+      - The 'title' must be very intuitive and within 40 characters.
       - Return ONLY the JSON object.
-      - All output must be in English.
+      - All output (title, tags, fullSummary) must be in ${isKorean ? "Korean (한국어)" : "English"}.
+      - ${isKorean ? "태그는 사회적으로 통용되는 검색하기 쉬운 키워드 위주로 작성하세요." : "Tags should be common searchable keywords."}
     `;
 
     const response = await generateWithRetry(prompt);
