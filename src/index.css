@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-color: #F5F5F7;
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --text-primary: #1D1D1F;
+  --text-secondary: #86868B;
+  --accent-color: #0071E3;
+  --border-radius: 18px;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --glass: blur(20px) saturate(180%);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Apple Style Card */
+.card {
+  background: var(--card-bg);
+  backdrop-filter: var(--glass);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-bottom: 20px;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0.4, 1), box-shadow 0.2s ease;
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+/* Typography */
+h1 { font-weight: 700; font-size: 34px; letter-spacing: -0.022em; }
+h2 { font-weight: 600; font-size: 24px; letter-spacing: -0.019em; }
+p { color: var(--text-secondary); font-size: 15px; }
+
+/* Buttons */
+.btn {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--accent-color);
+}
+
+/* Input */
+input {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: white;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+input:focus {
+  border-color: var(--accent-color);
+}
+
+/* Flex Utilities */
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-column { display: flex; flex-direction: column; gap: 10px; }
+
+/* Grid for Card View */
+.scrap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.scrap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Layout for Row */
+.scrap-item-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.scrap-thumbnail {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #eee;
+}
+
+.scrap-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.scrap-title {
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .container { padding: 15px; }
+  h1 { font-size: 28px; }
+}
