@@ -23,11 +23,11 @@ const InputSection = ({ onSuccess }) => {
     setPreview(null);
     try {
       // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목을 추출함
-      setStatus("URL 정보를 가져오는 중...");
+      setStatus("Fetching URL information...");
       const { title, thumbnail, content } = await scrapeUrl(url);
       
       // 2. Gemini Analysis: 추출된 내용을 바탕으로 대표 문구(title)와 태그, 전체 요약 생성
-      setStatus("AI가 내용을 분석하는 중...");
+      setStatus("AI is analyzing content...");
       const analysis = await analyzeContent(content);
       
       const newScrap = {
@@ -42,7 +42,7 @@ const InputSection = ({ onSuccess }) => {
       };
 
       setPreview(newScrap);
-      setStatus("분석 완료!");
+      setStatus("Analysis complete!");
       
       // 3. Save to Firestore: 생성된 최종 데이터를 DB(scraps 컬렉션)에 문서로 추가
       await addDoc(collection(db, "scraps"), newScrap);
@@ -67,7 +67,7 @@ const InputSection = ({ onSuccess }) => {
       className="card"
     >
       <form onSubmit={handleSubmit} className="flex-column">
-        <label style={{ fontSize: "14px", fontWeight: "600", color: "#86868B" }}>스크랩할 URL 입력</label>
+        <label style={{ fontSize: "14px", fontWeight: "600", color: "#86868B" }}>Enter URL to scrap</label>
         <div style={{ position: "relative" }}>
           <input 
             type="url" 
@@ -144,7 +144,7 @@ const InputSection = ({ onSuccess }) => {
             </div>
             <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "5px", color: "#34C759" }}>
               <CheckCircle size={16} />
-              <span style={{ fontSize: "13px", fontWeight: "600" }}>저장되었습니다!</span>
+              <span style={{ fontSize: "13px", fontWeight: "600" }}>Saved successfully!</span>
             </div>
           </motion.div>
         )}

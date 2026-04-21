@@ -73,7 +73,7 @@ const MainApp = () => {
                     await login();
                   } catch (error) {
                     console.error("Login failed:", error);
-                    alert("로그인 중 문제가 발생했습니다. 브라우저 팝업 차단을 해제하거나, 운영망(웹앱 배포 주소)으로 접속했는지 확인해주세요.");
+                    alert("An error occurred during login. Please disable pop-up blockers or ensure you are using the production URL.");
                   }
                 }} 
                 style={{ 
@@ -126,29 +126,29 @@ const MainApp = () => {
             onClick={() => setActiveTab("input")}
           >
             <PlusCircle size={20} />
-            <span>스크랩 추가</span>
+            <span>Add Scrap</span>
           </button>
           <button 
             className={`sidebar-nav-item ${activeTab === "list" ? "active" : ""}`}
             onClick={() => setActiveTab("list")}
           >
             <List size={20} />
-            <span>내 보관함</span>
+            <span>My Archive</span>
           </button>
         </nav>
         <div className="sidebar-footer">
           <button 
             className="btn btn-secondary" 
             onClick={handleCopyUid} 
-            title="텔레그램 봇 연동을 위한 전체 UID 복사"
+            title="Copy Personal UID for Telegram bot integration"
             style={{ padding: "10px 14px", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
           >
             {copied ? <Check size={16} color="var(--accent-color)" /> : <Copy size={16} />}
-            {copied ? "개인 식별자 복사됨" : "개인 식별자 (UID) 복사"}
+            {copied ? "UID Copied" : "Copy Personal UID"}
           </button>
-          <button className="btn btn-secondary" onClick={logout} style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }} title="로그아웃">
+          <button className="btn btn-secondary" onClick={logout} style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }} title="Sign Out">
             <LogOut size={16} />
-            <span>로그아웃</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -158,12 +158,12 @@ const MainApp = () => {
         <div className="container">
           {/* Mobile Header (Hidden on Desktop) */}
           <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px" }}>
-            <h1>{activeTab === "input" ? "스크랩 추가" : "내 보관함"}</h1>
+            <h1>{activeTab === "input" ? "Add Scrap" : "My Archive"}</h1>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <button 
                 className="btn btn-secondary" 
                 onClick={handleCopyUid} 
-                title="텔레그램 봇 연동을 위한 전체 UID 복사"
+                title="Copy Personal UID for Telegram bot integration"
                 style={{ 
                   padding: "8px 14px", 
                   fontSize: "12px", 
@@ -178,7 +178,7 @@ const MainApp = () => {
                 }}
               >
                 {copied ? <Check size={14} color="var(--accent-color)" /> : <Copy size={14} />}
-                {copied ? "복사됨" : "UID 복사"}
+                {copied ? "Copied" : "Copy UID"}
               </button>
               <motion.button 
                 whileTap={{ scale: 0.92 }}
@@ -195,7 +195,7 @@ const MainApp = () => {
                   color: "#3A3A3C",
                   cursor: "pointer"
                 }} 
-                title="로그아웃"
+                title="Sign Out"
               >
                 <LogOut size={20} />
               </motion.button>
@@ -204,7 +204,7 @@ const MainApp = () => {
 
           {/* Desktop Title (Hidden on Mobile) */}
           <div className="desktop-header desktop-only">
-            <h1>{activeTab === "input" ? "새로운 스크랩 추가하기" : "내 보관함"}</h1>
+            <h1>{activeTab === "input" ? "Add New Scrap" : "My Archive"}</h1>
           </div>
 
           {/* Content Route */}
@@ -241,7 +241,7 @@ const MainApp = () => {
           }}
         >
           <PlusCircle size={24} />
-          <span style={{ fontSize: "11px", fontWeight: "600" }}>입력</span>
+          <span style={{ fontSize: "11px", fontWeight: "600" }}>Input</span>
         </button>
         <button 
           onClick={() => setActiveTab("list")}
@@ -251,7 +251,7 @@ const MainApp = () => {
           }}
         >
           <List size={24} strokeWidth={activeTab === "list" ? 2.5 : 2} />
-          <span style={{ fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em" }}>보관함</span>
+          <span style={{ fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em" }}>Archive</span>
         </button>
       </nav>
     </div>

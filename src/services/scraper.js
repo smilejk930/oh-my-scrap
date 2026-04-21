@@ -42,7 +42,7 @@ export const scrapeUrl = async (url) => {
       doc.querySelector(`meta[property="${property}"]`)?.getAttribute("content") ||
       doc.querySelector(`meta[name="${property}"]`)?.getAttribute("content");
 
-    const title = getMeta("og:title") || doc.title || "제목 없음";
+    const title = getMeta("og:title") || doc.title || "Untitled";
     const thumbnail = getMeta("og:image") || "";
     
     // 본문 텍스트 추출 (주요 태그 위주)
@@ -59,6 +59,6 @@ export const scrapeUrl = async (url) => {
     };
   } catch (error) {
     console.error("Scraping Error:", error);
-    throw new Error("URL 정보를 가져오는데 실패했습니다.");
+    throw new Error("Failed to fetch URL information.");
   }
 };

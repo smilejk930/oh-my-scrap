@@ -68,7 +68,7 @@ const ScrapList = () => {
     return matchesSearch && matchesDate;
   });
 
-  if (loading) return <p style={{ textAlign: "center", padding: "40px" }}>불러오는 중...</p>;
+  if (loading) return <p style={{ textAlign: "center", padding: "40px" }}>Loading...</p>;
 
   return (
     <div className="flex-column" style={{ gap: "20px" }}>
@@ -78,7 +78,7 @@ const ScrapList = () => {
           <Search size={18} style={{ position: "absolute", left: "12px", top: "14px", color: "#86868B" }} />
           <input 
             style={{ paddingLeft: "40px" }}
-            placeholder="스크랩 검색..." 
+            placeholder="Search scraps..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -98,7 +98,7 @@ const ScrapList = () => {
                 }}
                 onClick={() => setFilterDate(f)}
               >
-                {f === "all" ? "전체" : f === "today" ? "오늘" : f === "week" ? "일주일" : f === "month" ? "한달" : "한달 이후"}
+                {f === "all" ? "All" : f === "today" ? "Today" : f === "week" ? "Week" : f === "month" ? "Month" : "Older"}
               </button>
             ))}
           </div>
@@ -121,7 +121,7 @@ const ScrapList = () => {
 
       {filteredScraps.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 0", color: "#86868B" }}>
-          데이터가 없습니다.
+          No scraps found.
         </div>
       ) : (
         <div className="scrap-container" style={{ display: isDesktop ? "flex" : "block", gap: "20px" }}>
@@ -151,7 +151,7 @@ const ScrapList = () => {
                 <button 
                   onClick={() => setSelectedScrap(null)}
                   style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(255,255,255,0.9)", border: "none", borderRadius: "50%", padding: "6px", cursor: "pointer", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}
-                  title="닫기"
+                  title="Close"
                 >
                   <X size={18} color="#333" />
                 </button>
@@ -163,7 +163,7 @@ const ScrapList = () => {
                   />
                 )}
                 <h2 style={{ fontSize: "22px", marginTop: "20px", fontWeight: "700" }}>
-                  {selectedScrap.title || "분석되지 않은 스크랩"}
+                  {selectedScrap.title || "Unanalyzed Scrap"}
                 </h2>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
                   {selectedScrap.tags?.map(t => (
@@ -174,7 +174,7 @@ const ScrapList = () => {
                 </div>
                 <div style={{ marginTop: "20px", padding: "20px", background: "rgba(0,0,0,0.02)", borderRadius: "12px" }}>
                   <p style={{ fontSize: "15px", lineHeight: "1.6", color: "#333", whiteSpace: "pre-wrap" }}>
-                    {selectedScrap.fullSummary || "요약 정보가 없습니다."}
+                    {selectedScrap.fullSummary || "No summary available."}
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
@@ -183,24 +183,24 @@ const ScrapList = () => {
                     style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} 
                     onClick={() => window.open(selectedScrap.url, "_blank")}
                   >
-                    원문 보기
+                    View Original
                   </button>
                   <button 
                     className="btn btn-secondary" 
                     style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "none" }} 
                     onClick={async () => {
-                      if (window.confirm("정말로 삭제하시겠습니까?")) {
+                      if (window.confirm("Are you sure you want to delete this?")) {
                         try {
                           await deleteDoc(doc(db, "scraps", selectedScrap.id));
                           setSelectedScrap(null);
                         } catch (error) {
                           console.error(error);
-                          alert("삭제 중 오류가 발생했습니다.");
+                          alert("An error occurred while deleting.");
                         }
                       }
                     }}
                   >
-                    삭제하기
+                    Delete
                   </button>
                 </div>
               </div>

@@ -39,19 +39,20 @@ const generateWithRetry = async (prompt, retries = 3) => {
 export const analyzeContent = async (content) => {
   try {
     const prompt = `
-      다음 웹페이지 내용을 분석해서 다음 형식의 JSON으로 반환해줘. 
-      내용: ${content.substring(0, 5000)} // 최대 5000자만 분석
+      Analyze the following webpage content and return it in JSON format.
+      Content: ${content.substring(0, 5000)} // Analyze up to 5000 characters
       
-      형식:
+      Format:
       {
-        "title": "20자 이내의 대표 문구",
-        "tags": ["태그1", "태그2", "태그3"], // 최대 3개
-        "fullSummary": "페이지의 핵심 내용을 2~3문장으로 요약"
+        "title": "A punchy headline within 40 characters",
+        "tags": ["tag1", "tag2", "tag3"], // Up to 3 tags
+        "fullSummary": "Core content summarized in 2-3 sentences"
       }
       
-      주의사항:
-      - title은 반드시 한국어 기준 20자 이내로 매우 직관적으로 작성할 것.
-      - JSON 형식만 반환할 것.
+      Requirements:
+      - The 'title' must be very intuitive and within 40 characters in English.
+      - Return ONLY the JSON object.
+      - All output must be in English.
     `;
 
     const response = await generateWithRetry(prompt);
@@ -67,9 +68,9 @@ export const analyzeContent = async (content) => {
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     return {
-      title: "분석 실패 (직접 입력 필요)",
-      tags: ["기타"],
-      fullSummary: "요약을 생성할 수 없습니다."
+      title: "Analysis Failed (Manual entry needed)",
+      tags: ["Misc"],
+      fullSummary: "Unable to generate summary at this time."
     };
   }
 };

@@ -12,17 +12,17 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const createdAt = scrap.createdAt?.toDate();
-  const dateStr = createdAt ? format(createdAt, "yy.MM.dd") : "방금 전";
+  const dateStr = createdAt ? format(createdAt, "yy.MM.dd") : "Just now";
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (window.confirm("정말로 삭제하시겠습니까?")) {
+    if (window.confirm("Are you sure you want to delete this?")) {
       try {
         await deleteDoc(doc(db, "scraps", scrap.id));
         if (onDelete) onDelete(scrap.id);
       } catch (error) {
         console.error(error);
-        alert("삭제 중 오류가 발생했습니다.");
+        alert("An error occurred while deleting.");
       }
     }
   };
@@ -47,7 +47,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
       });
     } catch (error) {
       console.error(error);
-      alert("분석 작업 중 오류가 발생했습니다.");
+      alert("An error occurred during analysis.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -85,13 +85,13 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
         </div>
         <div style={{ padding: "15px" }}>
           <h3 className="scrap-title" style={{ fontSize: "17px", whiteSpace: "normal", marginBottom: "8px" }}>
-            {scrap.title || "분석되지 않은 스크랩"}
+            {scrap.title || "Unanalyzed Scrap"}
           </h3>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
             <span style={{ fontSize: "12px", color: "#86868B" }}>{dateStr}</span>
             {!scrap.title && (
               <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "4px 10px" }} onClick={handleDelayedAnalysis} disabled={isAnalyzing}>
-                {isAnalyzing ? "분석 중..." : "AI 분석하기"}
+                {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
               </button>
             )}
           </div>
@@ -125,7 +125,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           </div>
         )}
         <div className="scrap-content">
-          <h3 className="scrap-title">{scrap.title || "분석되지 않은 스크랩"}</h3>
+          <h3 className="scrap-title">{scrap.title || "Unanalyzed Scrap"}</h3>
           <div className="flex-between">
             <div style={{ display: "flex", gap: "5px", overflow: "hidden" }}>
               {scrap.tags?.map(tag => (
@@ -138,7 +138,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           {!scrap.title ? (
             <button className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={handleDelayedAnalysis}>
-              {isAnalyzing ? "..." : "분석"}
+              {isAnalyzing ? "..." : "Analyze"}
             </button>
           ) : (
             !isDesktop && (
@@ -162,7 +162,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           <p style={{ fontSize: "14px", color: "#424245", marginBottom: "15px" }}>{scrap.fullSummary}</p>
           <button className="btn btn-secondary" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} onClick={handleOpen}>
             <ExternalLink size={16} />
-            원문 보기
+            View Original
           </button>
         </motion.div>
       )}
