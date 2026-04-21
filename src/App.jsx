@@ -38,25 +38,26 @@ const MainApp = () => {
         <ScrapList />
       )}
 
-      {/* 하단 내비게이션 바 (모바일 특화) */}
+      {/* 하단 내비게이션 바 (모바일 특화, Glassmorphism) */}
       <nav style={{
         position: "fixed",
         bottom: 0,
         left: 0,
         right: 0,
-        background: "rgba(255, 255, 255, 0.8)",
-        backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(0, 0, 0, 0.05)",
+        background: "rgba(255, 255, 255, 0.75)",
+        backdropFilter: "blur(30px) saturate(180%)",
+        WebkitBackdropFilter: "blur(30px) saturate(180%)",
+        borderTop: "1px solid rgba(172, 179, 184, 0.15)",
         display: "flex",
         justifyContent: "space-around",
-        padding: "15px 0",
+        padding: "16px 0 calc(16px + env(safe-area-inset-bottom))",
         zIndex: 100
       }}>
         <button 
           onClick={() => setActiveTab("input")}
           style={{ 
-            background: "none", border: "none", color: activeTab === "input" ? "#0071E3" : "#86868B",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: "4px"
+            background: "none", border: "none", color: activeTab === "input" ? "var(--accent-color)" : "var(--text-secondary)",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer"
           }}
         >
           <PlusCircle size={24} />
@@ -65,12 +66,12 @@ const MainApp = () => {
         <button 
           onClick={() => setActiveTab("list")}
           style={{ 
-            background: "none", border: "none", color: activeTab === "list" ? "#0071E3" : "#86868B",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: "4px"
+            background: "none", border: "none", color: activeTab === "list" ? "var(--accent-color)" : "var(--text-secondary)",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer"
           }}
         >
-          <List size={24} />
-          <span style={{ fontSize: "11px", fontWeight: "600" }}>보관함</span>
+          <List size={24} strokeWidth={activeTab === "list" ? 2.5 : 2} />
+          <span style={{ fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em" }}>보관함</span>
         </button>
       </nav>
       
