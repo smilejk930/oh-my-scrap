@@ -1,10 +1,31 @@
 /**
  * URL에서 메타데이터(제목, 썸네일) 및 본문 텍스트를 추출합니다.
  * @param {string} url - 스크랩할 대상 URL
- * @returns {Promise<{title: string, thumbnail: string, content: string, skipAi: boolean, skipReason: string}>}
+ * @returns {Promise<{title: string, thumbnail: string, content: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean}>}
  */
 export const scrapeUrl = async (url) => {
   try {
+    const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
+
+    // YouTube는 CORS 프록시가 reCAPTCHA/동의 페이지에 막혀 본문 추출이 불가능. oEmbed로 메타데이터만 가져오고 영상 내용 분석은 Gemini의 비디오 이해 기능(gemini.js)에 위임한다.
+    if (isYoutube) {
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+      const response = await fetch(oembedUrl);
+      if (!response.ok) throw new Error(`YouTube oEmbed failed: HTTP ${response.status}`);
+      const data = await response.json();
+      const ytTitle = data.title || "Untitled";
+      const ytChannel = data.author_name || "";
+
+      return {
+        title: ytTitle,
+        thumbnail: data.thumbnail_url || "",
+        content: `Title: ${ytTitle}\nChannel: ${ytChannel}`,
+        skipAi: false,
+        skipReason: "",
+        isYoutubeVideo: true
+      };
+    }
+
     const proxies = [
       `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
       `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -37,32 +58,13 @@ export const scrapeUrl = async (url) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    // 메타데이터 추출
-    const getMeta = (property) => 
+    const getMeta = (property) =>
       doc.querySelector(`meta[property="${property}"]`)?.getAttribute("content") ||
       doc.querySelector(`meta[name="${property}"]`)?.getAttribute("content");
 
     const title = getMeta("og:title") || doc.title || "Untitled";
     const thumbnail = getMeta("og:image") || "";
 
-    // 유튜브 영상 분기 처리: 5분(300초) 이상이면 AI 생략 처리
-    let skipAi = false;
-    let skipReason = "";
-    if (url.includes("youtube.com") || url.includes("youtu.be")) {
-      const lengthMatch = html.match(/"lengthSeconds":"(\d+)"/);
-      if (lengthMatch) {
-        const durationSeconds = parseInt(lengthMatch[1], 10);
-        if (durationSeconds > 300) {
-          skipAi = true;
-          skipReason = "재생 시간이 5분을 초과하는 유튜브 영상은 AI 요약이 생략됩니다.";
-        }
-      } else {
-         // 쇼츠나 실시간 스트리밍의 경우 시간이 없거나 다를 수 있음
-         // 이 코드 위치에서 추가 처리 필요 유무 판별 가능
-      }
-    }
-    
-    // 본문 텍스트 추출 (주요 태그 위주)
     const bodyText = Array.from(doc.querySelectorAll("p, h1, h2, h3, article"))
       .map(el => el.innerText)
       .join(" ")
@@ -73,8 +75,9 @@ export const scrapeUrl = async (url) => {
       title,
       thumbnail,
       content: bodyText || title,
-      skipAi,
-      skipReason
+      skipAi: false,
+      skipReason: "",
+      isYoutubeVideo: false
     };
   } catch (error) {
     console.error("Scraping Error:", error);

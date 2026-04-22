@@ -24,12 +24,12 @@ const InputSection = ({ onSuccess }) => {
     try {
       // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목, 기타 제어 플래그 추출
       setStatus("Fetching URL information...");
-      const { title, thumbnail, content, skipAi, skipReason } = await scrapeUrl(url);
-      
+      const { title, thumbnail, content, skipAi, skipReason, isYoutubeVideo } = await scrapeUrl(url);
+
       let analysis;
 
       if (skipAi) {
-        // AI 분석 생략 로직 (유튜브 5분 초과 등)
+        // AI 분석 생략 로직
         setStatus("Long video detected. Skipping AI...");
         analysis = {
           title: title,
@@ -39,9 +39,9 @@ const InputSection = ({ onSuccess }) => {
         // 화면 전환을 위해 잠시 대기
         await new Promise(resolve => setTimeout(resolve, 800));
       } else {
-        // 2. Gemini Analysis: 추출된 내용을 바탕으로 대표 문구(title)와 태그, 전체 요약 생성
-        setStatus("AI is analyzing content...");
-        analysis = await analyzeContent(content, preferredLanguage);
+        // 2. Gemini Analysis: YouTube는 비디오 이해 기능으로 영상 자체 분석, 그 외엔 텍스트 분석
+        setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
+        analysis = await analyzeContent(content, preferredLanguage, isYoutubeVideo ? url : null);
       }
       
       const newScrap = {
@@ -124,9 +124,9 @@ const InputSection = ({ onSuccess }) => {
         </div>
       </form>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {status && (
-          <motion.p 
+          <motion.p
             key="status-text"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -136,7 +136,9 @@ const InputSection = ({ onSuccess }) => {
             {status}
           </motion.p>
         )}
+      </AnimatePresence>
 
+      <AnimatePresence>
         {preview && (
           <motion.div 
             key="preview-card"
