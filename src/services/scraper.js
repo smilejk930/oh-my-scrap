@@ -1,7 +1,39 @@
+const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 Gemini 1M 토큰 한도 초과 유발 → AI 분석 생략
+
+// ISO 8601 duration (e.g. "PT1H2M3S") → seconds
+const parseIsoDuration = (iso) => {
+  const m = iso?.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return null;
+  const [, h, mi, s] = m;
+  return (Number(h) || 0) * 3600 + (Number(mi) || 0) * 60 + (Number(s) || 0);
+};
+
+const fetchYoutubeDurationSeconds = async (videoId) => {
+  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+  if (!apiKey) {
+    console.warn("VITE_YOUTUBE_API_KEY not set — YouTube duration check skipped. Long videos may exceed Gemini token limit.");
+    return null;
+  }
+  try {
+    const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoId}&key=${apiKey}`;
+    const res = await fetch(apiUrl);
+    if (!res.ok) {
+      console.warn(`YouTube Data API failed: HTTP ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    return parseIsoDuration(data?.items?.[0]?.contentDetails?.duration);
+  } catch (e) {
+    console.warn("YouTube duration fetch error:", e.message);
+    return null;
+  }
+};
+
 /**
  * URL에서 메타데이터(제목, 썸네일) 및 본문 텍스트를 추출합니다.
  * @param {string} url - 스크랩할 대상 URL
- * @returns {Promise<{title: string, thumbnail: string, content: string, isYoutubeVideo: boolean}>}
+ * @returns {Promise<{title: string, thumbnail: string, content: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean}>}
  */
 export const scrapeUrl = async (url) => {
   try {
@@ -16,10 +48,27 @@ export const scrapeUrl = async (url) => {
       const ytTitle = data.title || "Untitled";
       const ytChannel = data.author_name || "";
 
+      // 3분 초과 영상은 AI 분석 생략 (토큰 한도 초과 방지 + 비용 절감)
+      const idMatch = url.match(YT_ID_REGEX);
+      const videoId = idMatch ? idMatch[1] : null;
+      let skipAi = false;
+      let skipReason = "";
+      if (videoId) {
+        const seconds = await fetchYoutubeDurationSeconds(videoId);
+        if (seconds !== null && seconds > YOUTUBE_AI_MAX_SECONDS) {
+          skipAi = true;
+          const mm = Math.floor(seconds / 60);
+          const ss = seconds % 60;
+          skipReason = `3분 초과 영상(${mm}분 ${ss}초)으로 AI 분석을 생략했습니다.`;
+        }
+      }
+
       return {
         title: ytTitle,
         thumbnail: data.thumbnail_url || "",
         content: `Title: ${ytTitle}\nChannel: ${ytChannel}`,
+        skipAi,
+        skipReason,
         isYoutubeVideo: true
       };
     }
@@ -73,6 +122,8 @@ export const scrapeUrl = async (url) => {
       title,
       thumbnail,
       content: bodyText || title,
+      skipAi: false,
+      skipReason: "",
       isYoutubeVideo: false
     };
   } catch (error) {

@@ -25,9 +25,12 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_GEMINI_API_KEY=
+VITE_YOUTUBE_API_KEY=
 ```
 
 All env vars must be prefixed with `VITE_` to be accessible in browser code via `import.meta.env`.
+
+`VITE_YOUTUBE_API_KEY` is a YouTube Data API v3 key used only to read video duration (`videos.list?part=contentDetails`) so long videos can bypass Gemini. If unset, the duration check is skipped and long videos will fail with a Gemini token-limit error. Restrict the key by HTTP referrer and to YouTube Data API v3 only — `VITE_` keys ship to the browser.
 
 ## Architecture
 
@@ -36,9 +39,9 @@ All env vars must be prefixed with `VITE_` to be accessible in browser code via 
 ### Data flow for a scrap
 
 1. User pastes a URL in `InputSection`
-2. `scraper.js` fetches the page via CORS proxies (codetabs → corsproxy.io → allorigins.win fallback) and extracts `og:title`, `og:image`, and body text. For YouTube URLs, it uses oEmbed for metadata only and defers content analysis to Gemini's video understanding (returns `isYoutubeVideo: true`).
-3. `gemini.js` analyzes content via the Gemini API with multi-model fallback + up to 3 retries each, returning `{ title, tags, fullSummary }` as JSON. For YouTube, the video URL is passed as `fileData.fileUri` so Gemini analyzes the video itself (regardless of duration); for webpages, the extracted text is analyzed.
-4. The combined result is written to Firestore collection `scraps` with `userId`, `url`, `title` (AI), `originalTitle`, `thumbnail`, `tags`, `fullSummary`, `createdAt`
+2. `scraper.js` fetches the page via CORS proxies (codetabs → corsproxy.io → allorigins.win fallback) and extracts `og:title`, `og:image`, and body text. For YouTube URLs, it uses oEmbed for metadata and YouTube Data API v3 (`videos.list?part=contentDetails`) to read duration; videos longer than 3 minutes (`YOUTUBE_AI_MAX_SECONDS` in `scraper.js`) set `skipAi: true` to avoid Gemini's 1M input-token limit.
+3. `gemini.js` analyzes content via the Gemini API with multi-model fallback + up to 3 retries each, returning `{ title, tags, fullSummary }` as JSON. For YouTube videos ≤3 min, the video URL is passed as `fileData.fileUri` so Gemini analyzes the video itself; for webpages, the extracted text is analyzed. When `skipAi` is set, this step is bypassed and the original oEmbed title is kept with `["YouTube", "Video"]` tags.
+4. The combined result is written to Firestore collection `scraps` with `userId`, `url`, `title` (AI or original), `originalTitle`, `thumbnail`, `tags`, `fullSummary`, `createdAt`
 
 ### Key files
 

@@ -22,13 +22,25 @@ const InputSection = ({ onSuccess }) => {
     setLoading(true);
     setPreview(null);
     try {
-      // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목 추출
+      // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목, AI 생략 여부 추출
       setStatus("Fetching URL information...");
-      const { title, thumbnail, content, isYoutubeVideo } = await scrapeUrl(url);
+      const { title, thumbnail, content, skipAi, skipReason, isYoutubeVideo } = await scrapeUrl(url);
 
-      // 2. Gemini Analysis: YouTube는 비디오 이해 기능으로 영상 자체 분석, 그 외엔 텍스트 분석
-      setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
-      const analysis = await analyzeContent(content, preferredLanguage, isYoutubeVideo ? url : null);
+      let analysis;
+      if (skipAi) {
+        // 3분 초과 YouTube 영상: AI 분석 생략하고 원본 제목 유지
+        setStatus("Long video detected. Skipping AI...");
+        analysis = {
+          title,
+          tags: ["YouTube", "Video"],
+          fullSummary: skipReason || "Skipped AI analysis."
+        };
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } else {
+        // 2. Gemini Analysis: YouTube는 비디오 이해 기능으로 영상 자체 분석, 그 외엔 텍스트 분석
+        setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
+        analysis = await analyzeContent(content, preferredLanguage, isYoutubeVideo ? url : null);
+      }
       
       const newScrap = {
         userId: user.uid,

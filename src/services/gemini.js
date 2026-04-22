@@ -86,12 +86,12 @@ export const analyzeContent = async (content, language = "en", videoUrl = null) 
         lastError = error;
         console.warn(`[${modelName} - Attempt ${attempt}] failed:`, error.message);
 
-        // 503(과부하)이나 429(속도제한) 에러 시 대기 후 재시도
-        if (error.message?.includes("503") || error.message?.includes("429")) {
+        // 429(속도제한)는 잠시 후 회복 가능 → 백오프 대기 후 같은 모델 재시도
+        if (error.message?.includes("429")) {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
-        // 해당 모델을 찾을 수 없는 경우(404) 이 모델에서의 재시도 즉시 중단하고 다음 모델로
-        else if (error.message?.includes("404")) {
+        // 503(모델 과부하)이나 404(모델 없음)는 같은 모델 재시도해도 회복 가능성 낮음 → 즉시 다음 모델로
+        else if (error.message?.includes("503") || error.message?.includes("404")) {
           break;
         }
         // 기타 파싱/형식 에러 등의 경우 남은 횟수만큼 동일 모델에서 계속 재시도
