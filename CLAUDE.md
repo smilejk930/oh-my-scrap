@@ -36,10 +36,9 @@ All env vars must be prefixed with `VITE_` to be accessible in browser code via 
 ### Data flow for a scrap
 
 1. User pastes a URL in `InputSection`
-2. `scraper.js` fetches the page via CORS proxies (codetabs → corsproxy.io → allorigins.win fallback) and extracts `og:title`, `og:image`, and body text
-3. `gemini.js` sends extracted text to the Gemini API; it tries models in order (`gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-2.5-pro` → `gemini-2.0-flash` → ...) with up to 3 retries each, returning `{ title, tags, fullSummary }` as JSON
-4. YouTube videos >5 min bypass step 3 (`skipAi = true`), keeping the original title
-5. The combined result is written to Firestore collection `scraps` with `userId`, `url`, `title` (AI), `originalTitle`, `thumbnail`, `tags`, `fullSummary`, `createdAt`
+2. `scraper.js` fetches the page via CORS proxies (codetabs → corsproxy.io → allorigins.win fallback) and extracts `og:title`, `og:image`, and body text. For YouTube URLs, it uses oEmbed for metadata only and defers content analysis to Gemini's video understanding (returns `isYoutubeVideo: true`).
+3. `gemini.js` analyzes content via the Gemini API with multi-model fallback + up to 3 retries each, returning `{ title, tags, fullSummary }` as JSON. For YouTube, the video URL is passed as `fileData.fileUri` so Gemini analyzes the video itself (regardless of duration); for webpages, the extracted text is analyzed.
+4. The combined result is written to Firestore collection `scraps` with `userId`, `url`, `title` (AI), `originalTitle`, `thumbnail`, `tags`, `fullSummary`, `createdAt`
 
 ### Key files
 
