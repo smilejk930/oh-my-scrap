@@ -2,22 +2,15 @@ import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import InputSection from "./components/InputSection";
 import ScrapList from "./components/ScrapList";
-import { LogOut, PlusCircle, List, Copy, Check } from "lucide-react";
+import { LogOut, PlusCircle, List, LayoutGrid } from "lucide-react";
 import { motion } from "framer-motion";
 
 const MainApp = () => {
   // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
   const { user, login, logout, updateLanguage, preferredLanguage } = useAuth();
-  // 현재 활성화된 탭 상태 ('input' 또는 'list')
   const [activeTab, setActiveTab] = useState("input");
-  // UID 복사 알림 상태
-  const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState("list");
 
-  const handleCopyUid = () => {
-    navigator.clipboard.writeText(user.uid);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const LanguageToggle = () => (
     <div className="language-toggle">
@@ -155,15 +148,7 @@ const MainApp = () => {
         </nav>
         <div className="sidebar-footer">
           <LanguageToggle />
-          <button 
-            className="btn btn-secondary" 
-            onClick={handleCopyUid} 
-            title="Copy Personal UID for Telegram bot integration"
-            style={{ padding: "10px 14px", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-          >
-            {copied ? <Check size={16} color="var(--accent-color)" /> : <Copy size={16} />}
-            {copied ? "UID Copied" : "Copy Personal UID"}
-          </button>
+
           <button className="btn btn-secondary" onClick={logout} style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }} title="Sign Out">
             <LogOut size={16} />
             <span>Sign Out</span>
@@ -178,29 +163,28 @@ const MainApp = () => {
           <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "flex-start" }}>
             <div className="mobile-header-left">
               <h1 style={{ marginBottom: "5px" }}>{activeTab === "input" ? "Add Scrap" : "My Archive"}</h1>
-              <LanguageToggle />
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <LanguageToggle />
+                {activeTab === "list" && (
+                  <div style={{ display: "flex", gap: "4px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
+                    <button 
+                      onClick={() => setViewMode("list")}
+                      style={{ background: viewMode === "list" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+                    >
+                      <List size={14} color={viewMode === "list" ? "#0071E3" : "#86868B"} />
+                    </button>
+                    <button 
+                      onClick={() => setViewMode("card")}
+                      style={{ background: viewMode === "card" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+                    >
+                      <LayoutGrid size={14} color={viewMode === "card" ? "#0071E3" : "#86868B"} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ display: "flex", gap: "10px", alignItems: "center", paddingTop: "5px" }}>
-              <button 
-                className="btn btn-secondary" 
-                onClick={handleCopyUid} 
-                title="Copy Personal UID for Telegram bot integration"
-                style={{ 
-                  padding: "8px 14px", 
-                  fontSize: "12px", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "6px",
-                  borderRadius: "20px",
-                  border: "none",
-                  background: "rgba(0, 0, 0, 0.04)",
-                  color: "var(--text-primary)",
-                  fontWeight: "600"
-                }}
-              >
-                {copied ? <Check size={14} color="var(--accent-color)" /> : <Copy size={14} />}
-                {copied ? "Copied" : "Copy UID"}
-              </button>
+
               <motion.button 
                 whileTap={{ scale: 0.92 }}
                 onClick={logout} 
@@ -232,7 +216,7 @@ const MainApp = () => {
           {activeTab === "input" ? (
             <InputSection onSuccess={() => setActiveTab("list")} />
           ) : (
-            <ScrapList />
+            <ScrapList viewMode={viewMode} setViewMode={setViewMode} />
           )}
 
           <div className="mobile-only mobile-bottom-spacer"></div>

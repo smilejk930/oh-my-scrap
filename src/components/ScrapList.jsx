@@ -6,10 +6,9 @@ import ScrapItem from "./ScrapItem";
 import { Search, LayoutGrid, List as ListIcon, Calendar, X, Loader2 } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 
-const ScrapList = () => {
+const ScrapList = ({ viewMode, setViewMode }) => {
   const { user } = useAuth();
   const [scraps, setScraps] = useState([]); // Firestore에서 불러온 스크랩 전체 목록
-  const [viewMode, setViewMode] = useState("list"); // 리스트형('list') 또는 카드형('card') 보기 모드
   const [searchTerm, setSearchTerm] = useState(""); // 검색어 상태
   const [filterDate, setFilterDate] = useState("all"); // 날짜 필터 상태 ('today', 'week', 'month', 'older', 'all')
   const [loading, setLoading] = useState(true); // 데이터 로딩 상태
@@ -107,7 +106,7 @@ const ScrapList = () => {
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: "5px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
+          <div className="desktop-only" style={{ display: "flex", gap: "5px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
             <button 
               onClick={() => setViewMode("list")}
               style={{ background: viewMode === "list" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
