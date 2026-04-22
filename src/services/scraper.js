@@ -35,7 +35,7 @@ const fetchYoutubeDurationSeconds = async (videoId) => {
  * @param {string} url - 스크랩할 대상 URL
  * @returns {Promise<{title: string, thumbnail: string, content: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean}>}
  */
-export const scrapeUrl = async (url) => {
+export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
   try {
     const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
 
@@ -53,7 +53,7 @@ export const scrapeUrl = async (url) => {
       const videoId = idMatch ? idMatch[1] : null;
       let skipAi = false;
       let skipReason = "";
-      if (videoId) {
+      if (checkDuration && videoId) {
         const seconds = await fetchYoutubeDurationSeconds(videoId);
         if (seconds !== null && seconds > YOUTUBE_AI_MAX_SECONDS) {
           skipAi = true;
@@ -67,6 +67,7 @@ export const scrapeUrl = async (url) => {
         title: ytTitle,
         thumbnail: data.thumbnail_url || "",
         content: `Title: ${ytTitle}\nChannel: ${ytChannel}`,
+        description: ytChannel ? `Channel: ${ytChannel}` : "",
         skipAi,
         skipReason,
         isYoutubeVideo: true
@@ -110,7 +111,27 @@ export const scrapeUrl = async (url) => {
       doc.querySelector(`meta[name="${property}"]`)?.getAttribute("content");
 
     const title = getMeta("og:title") || doc.title || "Untitled";
-    const thumbnail = getMeta("og:image") || "";
+    const description = getMeta("og:description") || getMeta("description") || "";
+
+    const ogImage = getMeta("og:image");
+    let thumbnail = ogImage;
+    if (!thumbnail) {
+      const iconEl =
+        doc.querySelector('link[rel="apple-touch-icon"]') ||
+        doc.querySelector('link[rel="icon"][type="image/png"]') ||
+        doc.querySelector('link[rel="icon"]') ||
+        doc.querySelector('link[rel="shortcut icon"]');
+      const href = iconEl?.getAttribute("href") || "";
+      if (href) {
+        try {
+          thumbnail = href.startsWith("http") ? href : new URL(href, url).href;
+        } catch {
+          thumbnail = "/placeholder.svg";
+        }
+      } else {
+        thumbnail = "/placeholder.svg";
+      }
+    }
 
     const bodyText = Array.from(doc.querySelectorAll("p, h1, h2, h3, article"))
       .map(el => el.innerText)
@@ -122,6 +143,7 @@ export const scrapeUrl = async (url) => {
       title,
       thumbnail,
       content: bodyText || title,
+      description,
       skipAi: false,
       skipReason: "",
       isYoutubeVideo: false
