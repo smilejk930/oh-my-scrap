@@ -33,7 +33,7 @@ export const analyzeContent = async (content, language = "en") => {
   `;
 
   // 안좋은 모델부터 좋은 모델 순서 (실제 권한이 있는 텍스트 모델 기준)
-  const modelsToTry = ["gemini-2.5-flash", "gemini-3-flash", "gemini-3.1-pro"];
+  const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-3-flash-preview", "gemini-3.1-pro-preview"];
   const maxRetriesPerModel = 3;
 
   let lastError = new Error("Initialization");
