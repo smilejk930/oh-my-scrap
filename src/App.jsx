@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import InputSection from "./components/InputSection";
 import ScrapList from "./components/ScrapList";
@@ -8,8 +8,14 @@ import { motion } from "framer-motion";
 const MainApp = () => {
   // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
   const { user, login, logout, updateLanguage, preferredLanguage } = useAuth();
-  const [activeTab, setActiveTab] = useState("input");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("activeTab") || "input";
+  });
   const [viewMode, setViewMode] = useState("list");
+
+  useEffect(() => {
+    localStorage.setItem("activeTab", activeTab);
+  }, [activeTab]);
 
 
   const LanguageToggle = () => (
