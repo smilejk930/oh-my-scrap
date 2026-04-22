@@ -76,13 +76,12 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
         onClick={() => isDesktop ? onSelect() : handleOpen()}
       >
         <div style={{ height: "160px", background: "#f0f0f0", position: "relative" }}>
-          {scrap.thumbnail ? (
-            <img src={scrap.thumbnail} alt="thumb" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#86868B" }}>
-              <Tag size={40} opacity={0.2} />
-            </div>
-          )}
+          <img 
+            src={scrap.thumbnail || "/placeholder.svg"} 
+            alt="thumb" 
+            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+            onError={(e) => e.target.src = "/placeholder.svg"}
+          />
           <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "6px" }}>
             <button className="btn" style={{ width: "34px", height: "34px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "#FF3B30", border: "none" }} onClick={handleDelete}>
               <Trash2 size={18} />
@@ -131,13 +130,12 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
       onClick={() => isDesktop ? onSelect() : setIsExpanded(!isExpanded)}
     >
       <div className="scrap-item-row">
-        {scrap.thumbnail ? (
-          <img src={scrap.thumbnail} alt="thumb" className="scrap-thumbnail" />
-        ) : (
-          <div className="scrap-thumbnail" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Tag size={20} opacity={0.3} />
-          </div>
-        )}
+        <img 
+          src={scrap.thumbnail || "/placeholder.svg"} 
+          alt="thumb" 
+          className="scrap-thumbnail" 
+          onError={(e) => e.target.src = "/placeholder.svg"}
+        />
         <div className="scrap-content">
           <h3 className="scrap-title">{scrap.title || "Unanalyzed Scrap"}</h3>
           <div className="flex-between">

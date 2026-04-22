@@ -129,7 +129,7 @@ const ScrapList = ({ viewMode, setViewMode }) => {
         </div>
       ) : (
         <div className="scrap-container" style={{ display: isDesktop ? "flex" : "block", gap: "20px" }}>
-          <div className="scrap-left-pane" style={{ flex: isDesktop && selectedScrap ? 1 : "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div className="scrap-left-pane" style={{ flex: isDesktop && selectedScrap ? 1 : "auto", minWidth: 0, display: "flex", flexDirection: "column", gap: "12px" }}>
             <div className={viewMode === "list" ? "scrap-list" : "scrap-grid"}>
               {filteredScraps.map(scrap => (
                 <ScrapItem 
@@ -150,48 +150,60 @@ const ScrapList = ({ viewMode, setViewMode }) => {
           </div>
 
           {isDesktop && selectedScrap && (
-            <div className="scrap-right-pane" style={{ flex: 1, position: "sticky", top: "20px", height: "fit-content", maxHeight: "calc(100vh - 120px)", overflowY: "auto" }}>
-              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.15s ease", position: "relative" }}>
-                <button 
+            <div className="scrap-right-pane" style={{ flex: 1.2, position: "sticky", top: "20px", height: "calc(100vh - 120px)", display: "flex", flexDirection: "column" }}>
+              <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.15s ease", position: "relative", height: "100%", overflow: "hidden" }}>
+                <button
                   onClick={() => setSelectedScrap(null)}
                   style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(255,255,255,0.9)", border: "none", borderRadius: "50%", padding: "6px", cursor: "pointer", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}
                   title="Close"
                 >
                   <X size={18} color="#333" />
                 </button>
+
+                {/* 썸네일 */}
                 {selectedScrap.thumbnail && (
-                  <img 
-                    src={selectedScrap.thumbnail} 
-                    alt="thumbnail" 
-                    style={{ width: "100%", height: "240px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)" }} 
-                  />
+                  <div style={{ flexShrink: 0 }}>
+                    <img
+                      src={selectedScrap.thumbnail}
+                      alt="thumbnail"
+                      style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", display: "block" }}
+                    />
+                  </div>
                 )}
-                <h2 style={{ fontSize: "22px", marginTop: "20px", fontWeight: "700" }}>
-                  {selectedScrap.title || "Unanalyzed Scrap"}
-                </h2>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
-                  {selectedScrap.tags?.filter(t => t && t.trim()).map((t, index) => (
-                    <span key={`${t}-${index}`} style={{ fontSize: "12px", background: "rgba(0,113,227,0.1)", color: "#0071E3", padding: "4px 10px", borderRadius: "12px" }}>
-                      #{t}
-                    </span>
-                  ))}
+
+                {/* 제목 + 태그 */}
+                <div style={{ flexShrink: 0, marginTop: "16px" }}>
+                  <h2 style={{ fontSize: "18px", fontWeight: "700", lineHeight: "1.4", paddingRight: "32px" }}>
+                    {selectedScrap.title || "Unanalyzed Scrap"}
+                  </h2>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "10px" }}>
+                    {selectedScrap.tags?.filter(t => t && t.trim()).map((t, index) => (
+                      <span key={`${t}-${index}`} style={{ fontSize: "12px", background: "rgba(0,113,227,0.1)", color: "#0071E3", padding: "4px 10px", borderRadius: "12px" }}>
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ marginTop: "20px", padding: "20px", background: "rgba(0,0,0,0.02)", borderRadius: "12px" }}>
-                  <p style={{ fontSize: "15px", lineHeight: "1.6", color: "#333", whiteSpace: "pre-wrap" }}>
+
+                {/* 요약 — 스크롤 영역 */}
+                <div style={{ flex: 1, overflowY: "auto", marginTop: "14px", padding: "16px", background: "rgba(0,0,0,0.02)", borderRadius: "12px" }}>
+                  <p style={{ fontSize: "14px", lineHeight: "1.7", color: "#333", whiteSpace: "pre-wrap", margin: 0 }}>
                     {selectedScrap.fullSummary || "No summary available."}
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button 
-                    className="btn" 
-                    style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} 
+
+                {/* 액션 버튼 */}
+                <div style={{ flexShrink: 0, display: "flex", gap: "10px", marginTop: "14px" }}>
+                  <button
+                    className="btn"
+                    style={{ flex: 1, padding: "12px", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
                     onClick={() => window.open(selectedScrap.url, "_blank")}
                   >
                     View Original
                   </button>
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ flex: 1, padding: "14px", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "none" }} 
+                  <button
+                    className="btn btn-secondary"
+                    style={{ flex: 1, padding: "12px", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "none" }}
                     onClick={async () => {
                       if (window.confirm("Are you sure you want to delete this?")) {
                         try {

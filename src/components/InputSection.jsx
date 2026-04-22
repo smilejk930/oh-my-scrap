@@ -7,8 +7,32 @@ import { analyzeContent } from "../services/gemini";
 import { Loader2, Send, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const generateBasicTags = (url, isYoutubeVideo) => {
+  if (isYoutubeVideo) return ["YouTube", "Video"];
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, "");
+    const knownDomains = {
+      "github.com": "GitHub", "medium.com": "Medium",
+      "twitter.com": "Twitter", "x.com": "X",
+      "reddit.com": "Reddit", "instagram.com": "Instagram",
+      "linkedin.com": "LinkedIn", "notion.so": "Notion",
+      "velog.io": "Velog", "tistory.com": "Tistory",
+      "naver.com": "Naver",
+    };
+    const known = knownDomains[hostname];
+    if (known) return [known];
+    const parts = hostname.split(".");
+    const meaningless = new Set(["blog", "www", "app", "m", "news", "shop"]);
+    const fallbackIdx = parts.length >= 2 ? parts.length - 2 : 0;
+    const domainPart = meaningless.has(parts[0]) ? (parts[1] ?? parts[0]) : parts[fallbackIdx];
+    return [domainPart.charAt(0).toUpperCase() + domainPart.slice(1)];
+  } catch {
+    return ["Web"];
+  }
+};
+
 const InputSection = ({ onSuccess }) => {
-  const { user, preferredLanguage } = useAuth(); // 현재 로그인한 사용자 정보 및 언어 설정
+  const { user, preferredLanguage, useAi } = useAuth();
   const [url, setUrl] = useState(""); // 입력된 URL 상태
   const [loading, setLoading] = useState(false); // 로딩 상태 제어 (스크래핑 로직 진행 중 버튼 비활성화용)
   const [status, setStatus] = useState(""); // 현재 진행 상태 텍스트 (스크래핑 중, 분석 중 등)
@@ -22,12 +46,17 @@ const InputSection = ({ onSuccess }) => {
     setLoading(true);
     setPreview(null);
     try {
-      // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목, AI 생략 여부 추출
       setStatus("Fetching URL information...");
-      const { title, thumbnail, content, skipAi, skipReason, isYoutubeVideo } = await scrapeUrl(url);
+      const { title, thumbnail, content, description, skipAi, skipReason, isYoutubeVideo } = await scrapeUrl(url, { checkDuration: useAi });
 
       let analysis;
-      if (skipAi) {
+      if (!useAi) {
+        analysis = {
+          title,
+          tags: generateBasicTags(url, isYoutubeVideo),
+          fullSummary: description || ""
+        };
+      } else if (skipAi) {
         // 3분 초과 YouTube 영상: AI 분석 생략하고 원본 제목 유지
         setStatus("Long video detected. Skipping AI...");
         analysis = {
@@ -37,7 +66,7 @@ const InputSection = ({ onSuccess }) => {
         };
         await new Promise(resolve => setTimeout(resolve, 800));
       } else {
-        // 2. Gemini Analysis: YouTube는 비디오 이해 기능으로 영상 자체 분석, 그 외엔 텍스트 분석
+        // Gemini Analysis: YouTube는 비디오 이해 기능으로 영상 자체 분석, 그 외엔 텍스트 분석
         setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
         analysis = await analyzeContent(content, preferredLanguage, isYoutubeVideo ? url : null);
       }
@@ -148,7 +177,12 @@ const InputSection = ({ onSuccess }) => {
             }}
           >
             <div className="scrap-item-row">
-              {preview.thumbnail && <img src={preview.thumbnail} alt="preview" className="scrap-thumbnail" />}
+              <img 
+                src={preview.thumbnail || "/placeholder.svg"} 
+                alt="preview" 
+                className="scrap-thumbnail" 
+                onError={(e) => e.target.src = "/placeholder.svg"}
+              />
               <div className="scrap-content">
                 <h3 className="scrap-title" style={{ fontSize: "18px", color: "#0071E3" }}>{preview.title}</h3>
                 <div style={{ display: "flex", gap: "5px", marginTop: "5px" }}>
