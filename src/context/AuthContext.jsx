@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
             setUser(prev => ({ ...prev, settings: docSnap.data() }));
           } else {
             // 초기 설정 생성 (기본 언어: 영어)
-            const initialSettings = { language: "en" };
+            const initialSettings = { language: "en", useAi: false };
             setDoc(userDocRef, initialSettings);
             setUser(prev => ({ ...prev, settings: initialSettings }));
           }
@@ -53,13 +53,21 @@ export const AuthProvider = ({ children }) => {
     await setDoc(userDocRef, { language: lang }, { merge: true });
   };
 
-  const value = { 
-    user, 
-    login, 
-    logout, 
+  const updateUseAi = async (val) => {
+    if (!user) return;
+    const userDocRef = doc(db, "users", user.uid);
+    await setDoc(userDocRef, { useAi: val }, { merge: true });
+  };
+
+  const value = {
+    user,
+    login,
+    logout,
     updateLanguage,
+    updateUseAi,
     preferredLanguage: user?.settings?.language || "en",
-    loading 
+    useAi: user?.settings?.useAi ?? false,
+    loading
   };
 
   return (

@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 
 const MainApp = () => {
   // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
-  const { user, login, logout, updateLanguage, preferredLanguage } = useAuth();
+  const { user, login, logout, updateLanguage, preferredLanguage, updateUseAi, useAi } = useAuth();
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("activeTab") || "input";
   });
@@ -20,17 +20,34 @@ const MainApp = () => {
 
   const LanguageToggle = () => (
     <div className="language-toggle">
-      <button 
+      <button
         className={`lang-btn ${preferredLanguage === "en" ? "active" : ""}`}
         onClick={() => updateLanguage("en")}
       >
         EN
       </button>
-      <button 
+      <button
         className={`lang-btn ${preferredLanguage === "ko" ? "active" : ""}`}
         onClick={() => updateLanguage("ko")}
       >
         KO
+      </button>
+    </div>
+  );
+
+  const AiToggle = () => (
+    <div className="language-toggle">
+      <button
+        className={`lang-btn ${!useAi ? "active" : ""}`}
+        onClick={() => updateUseAi(false)}
+      >
+        OFF
+      </button>
+      <button
+        className={`lang-btn ${useAi ? "active" : ""}`}
+        onClick={() => updateUseAi(true)}
+      >
+        AI
       </button>
     </div>
   );
@@ -153,6 +170,7 @@ const MainApp = () => {
           </button>
         </nav>
         <div className="sidebar-footer">
+          <AiToggle />
           <LanguageToggle />
 
           <button className="btn btn-secondary" onClick={logout} style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }} title="Sign Out">
@@ -170,6 +188,7 @@ const MainApp = () => {
             <div className="mobile-header-left">
               <h1 style={{ marginBottom: "5px" }}>{activeTab === "input" ? "Add Scrap" : "My Archive"}</h1>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <AiToggle />
                 <LanguageToggle />
                 {activeTab === "list" && (
                   <div style={{ display: "flex", gap: "4px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
