@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebase";
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
@@ -14,11 +14,20 @@ const ScrapList = ({ viewMode, setViewMode }) => {
   const [loading, setLoading] = useState(true); // 데이터 로딩 상태
   const [selectedScrap, setSelectedScrap] = useState(null); // PC 화면에서 선택된 스크랩 상세 보기
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768); // 데스크톱 화면 여부
+  const searchHeaderRef = useRef(null);
+  const [detailPaneTop, setDetailPaneTop] = useState(130); // sticky 헤더 아래 시작 위치
 
   useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const update = () => {
+      setIsDesktop(window.innerWidth >= 768);
+      if (searchHeaderRef.current) {
+        // 10px(헤더 sticky top) + 헤더 높이 + 10px 여백
+        setDetailPaneTop(searchHeaderRef.current.offsetHeight + 20);
+      }
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
 
   useEffect(() => {
@@ -77,7 +86,7 @@ const ScrapList = ({ viewMode, setViewMode }) => {
   return (
     <div className="flex-column" style={{ gap: "20px" }}>
       {/* Search & Layout Toggles */}
-      <div className="flex-column" style={{ position: "sticky", top: "10px", zIndex: 10, background: "var(--bg-color)", paddingBottom: "10px" }}>
+      <div ref={searchHeaderRef} className="flex-column" style={{ position: "sticky", top: "10px", zIndex: 10, background: "var(--bg-color)", paddingBottom: "10px" }}>
         <div style={{ position: "relative" }}>
           <Search size={18} style={{ position: "absolute", left: "12px", top: "14px", color: "#86868B" }} />
           <input 
@@ -150,7 +159,7 @@ const ScrapList = ({ viewMode, setViewMode }) => {
           </div>
 
           {isDesktop && selectedScrap && (
-            <div className="scrap-right-pane" style={{ flex: 1.2, position: "sticky", top: "20px", height: "calc(100vh - 120px)", display: "flex", flexDirection: "column" }}>
+            <div className="scrap-right-pane" style={{ flex: 1.2, position: "sticky", top: `${detailPaneTop}px`, height: `calc(100vh - ${detailPaneTop}px - 20px)`, display: "flex", flexDirection: "column" }}>
               <div className="card" style={{ display: "flex", flexDirection: "column", animation: "fadeIn 0.15s ease", position: "relative", height: "100%", overflow: "hidden" }}>
                 <button
                   onClick={() => setSelectedScrap(null)}
@@ -161,15 +170,14 @@ const ScrapList = ({ viewMode, setViewMode }) => {
                 </button>
 
                 {/* 썸네일 */}
-                {selectedScrap.thumbnail && (
-                  <div style={{ flexShrink: 0 }}>
-                    <img
-                      src={selectedScrap.thumbnail}
-                      alt="thumbnail"
-                      style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", display: "block" }}
-                    />
-                  </div>
-                )}
+                <div style={{ flexShrink: 0 }}>
+                  <img
+                    src={selectedScrap.thumbnail || "/placeholder.svg"}
+                    alt="thumbnail"
+                    style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", display: "block" }}
+                    onError={(e) => e.target.src = "/placeholder.svg"}
+                  />
+                </div>
 
                 {/* 제목 + 태그 */}
                 <div style={{ flexShrink: 0, marginTop: "16px" }}>
