@@ -32,7 +32,7 @@ const InputSection = ({ onSuccess }) => {
         // AI 분석 생략 로직 (유튜브 5분 초과 등)
         setStatus("Long video detected. Skipping AI...");
         analysis = {
-          title: title.substring(0, 40),
+          title: title,
           tags: ["YouTube", "Video"],
           fullSummary: skipReason || "Skipped AI analysis."
         };
