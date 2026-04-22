@@ -22,13 +22,27 @@ const InputSection = ({ onSuccess }) => {
     setLoading(true);
     setPreview(null);
     try {
-      // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목을 추출함
+      // 1. Scraping: 입력된 URL로부터 내용과 이미지(썸네일), 제목, 기타 제어 플래그 추출
       setStatus("Fetching URL information...");
-      const { title, thumbnail, content } = await scrapeUrl(url);
+      const { title, thumbnail, content, skipAi, skipReason } = await scrapeUrl(url);
       
-      // 2. Gemini Analysis: 추출된 내용을 바탕으로 대표 문구(title)와 태그, 전체 요약 생성
-      setStatus("AI is analyzing content...");
-      const analysis = await analyzeContent(content, preferredLanguage);
+      let analysis;
+
+      if (skipAi) {
+        // AI 분석 생략 로직 (유튜브 5분 초과 등)
+        setStatus("Long video detected. Skipping AI...");
+        analysis = {
+          title: title.substring(0, 40),
+          tags: ["YouTube", "Video"],
+          fullSummary: skipReason || "Skipped AI analysis."
+        };
+        // 화면 전환을 위해 잠시 대기
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } else {
+        // 2. Gemini Analysis: 추출된 내용을 바탕으로 대표 문구(title)와 태그, 전체 요약 생성
+        setStatus("AI is analyzing content...");
+        analysis = await analyzeContent(content, preferredLanguage);
+      }
       
       const newScrap = {
         userId: user.uid,
