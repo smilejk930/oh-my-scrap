@@ -1,8 +1,8 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="blue_grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#007AFF"/>
-      <stop offset="1" stop-color="#0050AB"/>
+    <linearGradient id="smart_grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9F9F9"/>
+      <stop offset="1" stop-color="#EBEBF0"/>
     </linearGradient>
     <filter id="shadow" x="-4" y="-4" width="72" height="72" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feFlood flood-opacity="0" result="BackgroundImageFix"/>
@@ -10,19 +10,19 @@
       <feOffset dy="2"/>
       <feGaussianBlur stdDeviation="2"/>
       <feComposite in2="hardAlpha" operator="out"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0.443137 0 0 0 0 0.890196 0 0 0 0.25 0"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0"/>
       <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
       <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
     </filter>
   </defs>
-  <rect width="64" height="64" rx="16" fill="url(#blue_grad)"/>
+  <rect width="64" height="64" rx="16" fill="url(#smart_grad)"/>
   <g filter="url(#shadow)">
     <!-- Main Sheet -->
-    <rect x="18" y="16" width="28" height="32" rx="3" fill="white"/>
+    <rect x="18" y="16" width="28" height="32" rx="3" fill="white" stroke="#000000" stroke-width="2"/>
     <!-- Lines on paper -->
-    <rect x="22" y="24" width="20" height="2" rx="1" fill="#E5E5EA"/>
-    <rect x="22" y="30" width="20" height="2" rx="1" fill="#E5E5EA"/>
-    <rect x="22" y="36" width="12" height="2" rx="1" fill="#E5E5EA"/>
+    <rect x="22" y="24" width="20" height="2" rx="1" fill="#8E8E93"/>
+    <rect x="22" y="30" width="20" height="2" rx="1" fill="#8E8E93"/>
+    <rect x="22" y="36" width="12" height="2" rx="1" fill="#8E8E93"/>
     <!-- Sparkle / AI element -->
     <path d="M48 16L46.5 21L41.5 22.5L46.5 24L48 29L49.5 24L54.5 22.5L49.5 21L48 16Z" fill="#FFD60A"/>
   </g>
