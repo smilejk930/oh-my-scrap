@@ -28,6 +28,3 @@ dist-ssr
 
 # Firebase
 .firebase/
-
-# docs
-docs/Gemini-cli-Guide/
