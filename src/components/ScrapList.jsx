@@ -134,24 +134,26 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick }) => {
             {onAddClick && (
               <motion.button
                 whileTap={{ scale: 0.92 }}
-                whileHover={{ scale: 1.05 }}
                 onClick={onAddClick}
                 style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "50%",
-                  background: "var(--accent-color)",
-                  border: "none",
-                  color: "#fff",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "10px 18px",
+                  borderRadius: "20px",
+                  border: "none",
+                  background: "var(--accent-color)",
+                  color: "#fff",
+                  fontWeight: "600",
+                  fontSize: "14px",
                   cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(0,113,227,0.3)",
                   flexShrink: 0
                 }}
                 title="Add Scrap"
               >
-                <Plus size={18} />
+                <Plus size={16} />
+                <span>Add</span>
               </motion.button>
             )}
           </div>

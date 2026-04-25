@@ -171,10 +171,44 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
               </button>
             )
           )}
-          <button className="btn btn-secondary" style={{ padding: "6px", color: "var(--accent-color)", border: "none", background: "none" }} onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}
+            title="Re-analyze"
+            style={{
+              width: "32px",
+              height: "32px",
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              border: "none",
+              background: "transparent",
+              color: "var(--accent-color)",
+              cursor: "pointer",
+              flexShrink: 0
+            }}
+          >
             <RefreshCw size={16} />
           </button>
-          <button className="btn btn-secondary" style={{ padding: "6px", color: "#FF3B30", border: "none", background: "none" }} onClick={handleDelete}>
+          <button
+            onClick={handleDelete}
+            title="Delete"
+            style={{
+              width: "32px",
+              height: "32px",
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              border: "none",
+              background: "transparent",
+              color: "#FF3B30",
+              cursor: "pointer",
+              flexShrink: 0
+            }}
+          >
             <Trash2 size={18} />
           </button>
         </div>

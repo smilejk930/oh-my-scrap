@@ -5,43 +5,8 @@ import AddScrapDialog from "./components/AddScrapDialog";
 import { LogOut, Plus, List, LayoutGrid } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Hoisted to module scope to avoid re-creating on every render (I3)
-const LanguageToggle = ({ preferredLanguage, updateLanguage }) => (
-  <div className="language-toggle">
-    <button
-      className={`lang-btn ${preferredLanguage === "en" ? "active" : ""}`}
-      onClick={() => updateLanguage("en")}
-    >
-      EN
-    </button>
-    <button
-      className={`lang-btn ${preferredLanguage === "ko" ? "active" : ""}`}
-      onClick={() => updateLanguage("ko")}
-    >
-      KO
-    </button>
-  </div>
-);
-
-const AiToggle = ({ useAi, updateUseAi }) => (
-  <div className="language-toggle">
-    <button
-      className={`lang-btn ${!useAi ? "active" : ""}`}
-      onClick={() => updateUseAi(false)}
-    >
-      OFF
-    </button>
-    <button
-      className={`lang-btn ${useAi ? "active" : ""}`}
-      onClick={() => updateUseAi(true)}
-    >
-      AI
-    </button>
-  </div>
-);
-
 const MainApp = () => {
-  const { user, login, logout, updateLanguage, preferredLanguage, updateUseAi, useAi } = useAuth();
+  const { user, login, logout } = useAuth();
   const [viewMode, setViewMode] = useState("list");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -150,8 +115,6 @@ const MainApp = () => {
           <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "center" }}>
             <h1 style={{ fontSize: "24px", fontWeight: "700", letterSpacing: "-0.03em" }}>Oh My Scrap</h1>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <AiToggle useAi={useAi} updateUseAi={updateUseAi} />
-              <LanguageToggle preferredLanguage={preferredLanguage} updateLanguage={updateLanguage} />
               <motion.button
                 whileTap={{ scale: 0.92 }}
                 onClick={logout}
@@ -181,29 +144,6 @@ const MainApp = () => {
           <div className="desktop-header desktop-only">
             <h1>Oh My Scrap</h1>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <AiToggle useAi={useAi} updateUseAi={updateUseAi} />
-              <LanguageToggle preferredLanguage={preferredLanguage} updateLanguage={updateLanguage} />
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={() => setIsDialogOpen(true)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "10px 18px",
-                  borderRadius: "20px",
-                  border: "none",
-                  background: "var(--accent-color)",
-                  color: "#fff",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                  boxShadow: "0 4px 14px rgba(0,113,227,0.3)"
-                }}
-              >
-                <Plus size={16} />
-                <span>Add</span>
-              </motion.button>
               <button
                 className="btn btn-secondary"
                 onClick={logout}
