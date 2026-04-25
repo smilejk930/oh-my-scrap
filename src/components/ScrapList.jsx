@@ -120,7 +120,7 @@ const ScrapList = ({ viewMode, setViewMode }) => {
               className={`lang-btn ${viewMode === "list" ? "active" : ""}`}
               onClick={() => setViewMode("list")}
               title="List view"
-              style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
+              style={{ display: "flex", alignItems: "center" }}
             >
               <ListIcon size={14} />
             </button>
@@ -128,7 +128,7 @@ const ScrapList = ({ viewMode, setViewMode }) => {
               className={`lang-btn ${viewMode === "card" ? "active" : ""}`}
               onClick={() => setViewMode("card")}
               title="Card view"
-              style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
+              style={{ display: "flex", alignItems: "center" }}
             >
               <LayoutGrid size={14} />
             </button>
