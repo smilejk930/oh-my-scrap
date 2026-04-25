@@ -39,6 +39,18 @@ mkdir -p docs/pipeline
 
 If `git_available != true`, you cannot use worktree isolation — the multi-feature flow falls back to sequential.
 
+## Playwright MCP availability probe
+
+Probe Playwright by issuing ONE `mcp__playwright__browser_navigate` to `about:blank`. Then immediately `mcp__playwright__browser_close`.
+- If both calls succeed → set `playwright_available: true`.
+- If the navigate call errors / tool unavailable / times out → set `playwright_available: false`.
+
+If `playwright_available == false`:
+- ALL tester Task dispatches in Phase 3-S, Phase 3-M, and Phase 7-M are SKIPPED. Aggregation phases use reviewer verdict only, with the test verdict synthesized as `INCONCLUSIVE` (`not_live_reason: "Playwright MCP unavailable in this environment"`).
+- The plan report's `## 비고` section AND the result report's top-level state MUST include the line: `**Playwright MCP 미사용** — tester 단계 생략, 동적 검증 미수행 (정적 리뷰만 진행)`.
+- Surface this once to the user before Phase 1 dispatch: "Playwright MCP not available — running reviewer-only pipeline."
+- Do NOT abort the pipeline. Reviewer-only validation is still valuable.
+
 # Phase 1 — Plan
 
 Spawn the `planner` subagent (Task, `subagent_type: planner`) with the user's task as the prompt. Capture the `plan:` block.
@@ -108,15 +120,15 @@ Capture both `review:` and `test:` blocks.
 
 ## Phase 4-S — Aggregate
 
-`review.verdict == PASS` AND `test.verdict == PASS` → **결과 보고서 생성** 후 STOP.
+`review.verdict == PASS` AND `test.verdict == PASS` → go to Phase 8 (Single Flow has no worktrees, but the tester's dev-server cleanup must still be verified — see Phase 8 single-flow path), then **결과 보고서 생성** 후 STOP.
 
-If `test.verdict == INCONCLUSIVE` (some flows could not be live-exercised — e.g., auth wall) AND `review.verdict == PASS`: do NOT auto-converge. Surface the unreachable flows to the user in one sentence and ask whether to (a) accept and finalize, or (b) re-iterate with the inconclusive flows folded into the next coder feedback (e.g., adding a test-mode shim, env override, or alternative entry point). Only proceed to "STOP" after the user's choice.
+If `test.verdict == INCONCLUSIVE` (some flows could not be live-exercised — e.g., auth wall, or `playwright_available: false`) AND `review.verdict == PASS`: **auto-converge with caveat**. Go to Phase 8, then **결과 보고서 생성** 후 STOP. The result report's "Live-render 미수행 항목" section MUST list every unreachable flow with its `not_live_reason`, and the `최종 상태` MUST be `부분 성공` (not `성공`) so the caveat is visible. Do NOT prompt the user — the report is the disclosure. This matches the multi-flow `ready_to_merge_with_caveat` behavior in Phase 4-M for symmetry.
 
-Otherwise (`FAIL` or user chose to re-iterate): build `feedback:` block, go to Phase 5-S.
+Otherwise (`FAIL`): build `feedback:` block, go to Phase 5-S.
 
 ## Phase 5-S — Self-Heal
 
-If `iteration >= 3`: **결과 보고서 생성** (미해결 항목 포함) 후 STOP. Report unresolved items.
+If `iteration >= 3`: go to Phase 8, then **결과 보고서 생성** (미해결 항목 포함) 후 STOP. Report unresolved items.
 
 Else: increment `iteration`. Spawn `coder` with the `feedback:` block. Capture new `implementation:` block. Return to Phase 3-S.
 
@@ -145,7 +157,7 @@ Coder responsibilities (enforced in coder.md):
 
 The Task tool returns each agent's path and branch alongside its output. Track them as `workstream_state[id] = { branch, worktree_path, implementation, commit_sha, iteration: 1 }`.
 
-If any workstream's `implementation.build_status == failed` (whether from stale base, build error, or any other reason): mark it as needing fix in next iteration. Don't include it in Phase 3-M; route those failures to Phase 5-M directly. A stale-base failure is NOT recoverable by the coder — surface it to the user as a pipeline abort if all workstreams fail with stale-base.
+If any workstream's `implementation.build_status == failed` (whether from stale base, build error, or any other reason): mark it as needing fix in next iteration. Don't include it in Phase 3-M; route those failures to Phase 5-M directly. A stale-base failure is NOT recoverable by the coder — if ALL workstreams fail with stale-base, **go to Phase 8, then 결과 보고서 생성 (실패 상태) 후 STOP**. Do NOT just terminate — the worktrees that were created (even though their coders aborted) still need their cleanup pass.
 
 ## Phase 3-M — Per-Workstream Parallel Validation
 
@@ -171,6 +183,20 @@ Otherwise → go to Phase 5-M.
 
 ## Phase 5-M — Per-Workstream Self-Heal
 
+**Pre-iteration leftover sweep** — before dispatching new coders, sweep each re-iterating worktree for stragglers from the previous tester (forgotten dev server, esbuild worker still holding `node_modules/.vite/`). If you skip this, the new coder's `npm run build` may fail with EBUSY or hit stale-cache issues. Run ONE Bash per worktree being re-iterated:
+
+```bash
+WTP="<worktree_path of the workstream being re-iterated>"
+if command -v powershell >/dev/null 2>&1; then
+  powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -like '*$WTP*' -and \$_.ProcessId -ne \$PID } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
+else
+  pgrep -f "$WTP" | xargs -r kill -9 2>/dev/null || true
+fi
+sleep 1
+```
+
+This is the orchestrator's own work — do NOT delegate it to a coder. Run it BEFORE the parallel coder dispatch below.
+
 For each workstream marked for re-iteration where `iteration < 3`:
 - Increment its iteration counter.
 - Add a Task call to a single message: `subagent_type: coder` with the same `worktree_path` (so it operates in the same worktree) and the `feedback:` block.
@@ -186,6 +212,10 @@ Otherwise return to Phase 3-M (re-validate only the workstreams that were just r
 ## Phase 6-M — Merge
 
 Before invoking the merger, capture the **pre-merge SHA** of the base branch: `pre_merge_sha = git rev-parse <base_branch>` (this should equal `base_sha` from Phase 0 unless the base advanced during the run — note any drift). The integration phase uses this as the diff anchor.
+
+**Branch list composition (mandatory)**: `merge_request.branches` MUST include ONLY workstreams whose final state is `ready_to_merge` or `ready_to_merge_with_caveat`. Workstreams marked `unconverged` (iteration ≥ 3 with FAIL) are **EXCLUDED** from the merge — never paste their entries into the merger prompt. Their worktrees are still cleaned up in Phase 8, and their state (last failure summary + iteration count) is recorded in the result report under "잔여 이슈". Merging unconverged code is a regression vector and must not happen silently.
+
+If after filtering the branch list is empty (all workstreams unconverged) → skip Phase 6-M and Phase 7-M, go straight to Phase 8 then **결과 보고서 생성** (실패 상태) 후 STOP.
 
 Spawn ONE `merger` subagent (NOT in worktree isolation — it works on the main repo). Prompt body:
 
@@ -218,7 +248,7 @@ Capture `merge:` block.
 Branches:
 - `merge.status == success` AND `merge.build_status == passed` → go to Phase 7-M.
 - `merge.status == partial` OR `merge.regressions` non-empty → go to Phase 7-M but flag the issues in the final report.
-- `merge.status == aborted` → **결과 보고서 생성** (실패 상태) 후 STOP, report `merge.aborted_reason` to the user.
+- `merge.status == aborted` → **go to Phase 8, then 결과 보고서 생성** (실패 상태) 후 STOP, report `merge.aborted_reason` to the user. The merger did not perform its own cleanup on abort, so Phase 8 is the only thing standing between the leftover worktrees and the next pipeline run.
 
 ## Phase 7-M — Integration Validation
 
@@ -236,12 +266,72 @@ ONE message, TWO Task calls in parallel on the merged main branch (no worktree p
   - `expected_files` (the planner's authorized scope)
   - `actual_files` (the diff list)
   - `out_of_scope_files` (set difference)
-  - Explicit instruction: for each out-of-scope file, decide whether the change was a justified side-effect (e.g., generated lockfile, formatter sweep) or an unrequested feature/regression. Treat unrequested user-facing behavior changes (UI elements, routes, copy, public API) as `severity: high` — they did NOT come from the user's request.
+  - `base_sha_drift` (boolean copied from `merge.pre_flight.base_sha_drift`) — when `true`, some entries in `out_of_scope_files` may be merge-resolution artifacts of upstream drift on `<base_branch>` between Phase 0 and Phase 6-M, NOT coder scope-creep. Reviewer should consider this when assigning severity: drift-attributable changes drop one severity level (high → medium, medium → low) unless they introduce user-facing behavior, in which case severity stays at `high` regardless.
+  - Explicit instruction: for each out-of-scope file, decide whether the change was a justified side-effect (e.g., generated lockfile, formatter sweep, drift artifact) or an unrequested feature/regression. Treat unrequested user-facing behavior changes (UI elements, routes, copy, public API) as `severity: high` — they did NOT come from the user's request.
 - `subagent_type: tester` — exercises ALL ui_flows from ALL workstreams (combined). MUST also perform a **negative-space scan**: at least one snapshot of the unauthenticated landing screen and one snapshot of each major route/section, comparing visible UI elements (header chrome, nav, primary affordances) against the planner's request to flag any UI element that is present but was never requested. List those under `unrequested_ui` in the output.
 
-If both PASS (and no `unrequested_ui` items are present) → **결과 보고서 생성** 후 done.
+If both PASS (and no `unrequested_ui` items are present) → go to Phase 8, then **결과 보고서 생성** 후 done.
 
-If any FAIL or `out_of_scope_files`/`unrequested_ui` is non-empty → spawn ONE final coder pass on the main repo (no worktree) with a feedback block aggregating the integration failures, scope-creep findings, and unrequested UI. After this single pass, run Phase 7-M one more time. If still failing → **결과 보고서 생성** (미해결 항목 포함) 후 STOP and surface remaining issues. (No infinite integration loop.)
+If any FAIL or `out_of_scope_files`/`unrequested_ui` is non-empty → spawn ONE final coder pass on the main repo (no worktree) with a feedback block aggregating the integration failures, scope-creep findings, and unrequested UI. After this single pass, run Phase 7-M one more time. If still failing → go to Phase 8, then **결과 보고서 생성** (미해결 항목 포함), then STOP. (No infinite integration loop.)
+
+---
+
+# Phase 8 — Cleanup (mandatory finalizer, safety net)
+
+**This phase MUST run on every terminal exit path before the result report — success, partial, abort, exception, integration-failed-twice.** Skipping it is what causes orphaned Vite/esbuild processes to silently break the next pipeline run.
+
+The merger normally cleans worktrees on its way out (per `merger.md`), but several exit paths bypass the merger entirely:
+- Phase 2-M: every workstream aborts with stale base.
+- Phase 6-M: `merge.status == aborted` (preflight failed before any merge).
+- Phase 7-M: integration validation fails twice.
+- Single Flow: no worktrees were ever created, but a tester's leftover dev server may still be running on the main repo.
+
+For Single Flow with no worktrees, only the port/process sweep on the main repo applies — skip the worktree removal steps.
+
+For every `worktree_path` recorded in `workstream_state` (regardless of state — `ready_to_merge`, `unconverged`, `failed_stale_base`, anything):
+
+```bash
+WTP="<worktree_path>"
+
+# 1. Sweep stragglers — dev servers, esbuild workers, file watchers
+if command -v powershell >/dev/null 2>&1; then
+  KILLED=$(powershell -NoProfile -Command "(Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -like '*$WTP*' -and \$_.ProcessId -ne \$PID } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue; \$_.ProcessId } | Measure-Object).Count" 2>/dev/null)
+else
+  KILLED=$(pgrep -f "$WTP" | wc -l)
+  pgrep -f "$WTP" | xargs -r kill -9 2>/dev/null || true
+fi
+sleep 1
+
+# 2. Try git worktree remove
+git worktree remove -f -f "$WTP" 2>/dev/null
+REMOVE_RC=$?
+
+# 3. Filesystem fallback if step 2 failed and the path still exists
+if [ $REMOVE_RC -ne 0 ] && [ -e "$WTP" ]; then
+  if command -v powershell >/dev/null 2>&1; then
+    powershell -NoProfile -Command "Remove-Item -Recurse -Force '$WTP' -ErrorAction SilentlyContinue" 2>/dev/null
+  else
+    rm -rf "$WTP" 2>/dev/null
+  fi
+fi
+
+# 4. Verify and record
+if [ -e "$WTP" ]; then
+  echo "CLEANUP_FAIL id=<id> path=$WTP killed=$KILLED"
+else
+  echo "CLEANUP_OK id=<id> path=$WTP killed=$KILLED"
+fi
+```
+
+After all paths handled, run once: `git worktree prune`.
+
+Track each result in `cleanup_state[id] = { worktree_path, processes_killed, worktree_removed, error }` for the final report.
+
+NEVER use `taskkill /IM node.exe`, `pkill node`, or `pkill -f vite` here — those would also kill the orchestrator's tooling and any sibling pipeline running on the same machine. Always scope by `worktree_path`.
+
+If the merger already ran (Phase 6-M reached) AND its `merge.cleanup` block reports a worktree as `worktree_removed: true`, that path is a no-op for Phase 8 — but still run the sweep on the path; if a process restarted itself between merger exit and now, you want to catch it. The cost is negligible.
+
+Update progress message: "정리 완료. 보고서 작성 중." (or "정리 완료 (실패 N건)." if any `worktree_removed: false`).
 
 ---
 
@@ -297,6 +387,17 @@ Write a file at `docs/pipeline/{report_date}-result-{task_slug}.md` using the Wr
 
 {integration 리뷰의 `out_of_scope_files` 와 `unrequested_ui` 결과. 없으면 "없음".
 사용자가 명시적으로 요청한 항목 외에 코드/UI 가 변경되었다면 — 머지에 흡수되었더라도 — 이 섹션에 반드시 기재한다.}
+
+---
+
+## 워크트리 정리 결과
+
+| 워크스트림 | 워크트리 경로 | 종료된 프로세스 수 | 워크트리 제거 | 비고 |
+|-----------|--------------|------------------|-------------|------|
+| {id}      | {worktree_path} | {n}            | 성공/실패    | {error 메시지 또는 "정상"} |
+
+{워크트리가 없었던 단일 플로우인 경우 "단일 플로우 — 정리 대상 워크트리 없음" 으로 기재.
+정리 실패한 항목이 있으면 사용자가 수동 정리할 수 있도록 경로와 원인을 명확히 적는다.}
 
 ---
 

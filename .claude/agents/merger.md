@@ -91,6 +91,14 @@ merge:
   unmerged:           # branches that couldn't be merged at all
     - id: <id>
       reason: <why>
+  cleanup:            # one entry per worktree the orchestrator passed in, regardless of merge outcome
+    - id: <workstream id>
+      worktree_path: <absolute path>
+      processes_killed: <int>            # how many PIDs the sweep terminated; 0 if none found
+      worktree_removed: true | false     # final state — was the directory actually gone afterward
+      branch_deleted: true | false | skipped   # skipped for entries in `unmerged`
+      method: git-worktree-remove | fs-fallback | failed
+      error: <one-line if removal failed, else null>
   shared_concerns_check:
     - concern: <text from input>
       satisfied: true | false | unknown
@@ -109,5 +117,20 @@ merge:
 - NEVER force-push or rewrite history.
 - NEVER use `git reset --hard` to escape a bad merge — instead `git merge --abort` and report it.
 - If a conflict is genuinely undecidable from the inputs, prefer leaving the base side and recording the issue under `regressions` — the orchestrator can route this back to a Coder.
-- After all merges, you MUST run `git worktree remove -f -f <path>` for each worktree to clean up the working directories. The double `-f` flag overrides both the lock and uncommitted-changes guards. If the command still errors (e.g., process holding a file handle), attempt `Remove-Item -Recurse -Force <path>` on Windows or `rm -rf <path>` on Unix as a fallback. Log any remaining failure but do not abort.
-- After removing each worktree, delete its feature branch with `git branch -D <branch>`. This applies to all successfully merged branches. Skip branch deletion only for branches listed under `unmerged`.
+- **Worktree cleanup runs for EVERY worktree path you received in the prompt — even branches listed under `unmerged` and even when `status: aborted`** (the orchestrator may decide to keep unmerged branches but never to keep their worktrees: a leftover Vite/esbuild process inside a stale worktree path is what corrupts the next pipeline run). For each worktree, do this in strict order:
+  1. **Process sweep first.** Windows holds file locks on any directory whose subprocess still has a handle there, and `git worktree remove -f -f` does NOT terminate processes — it just overrides lock files. Kill anything whose command line references the worktree path:
+     ```bash
+     WTP="<worktree_path>"
+     if command -v powershell >/dev/null 2>&1; then
+       powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -like '*$WTP*' -and \$_.ProcessId -ne \$PID } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
+     else
+       pgrep -f "$WTP" | xargs -r kill -9 2>/dev/null || true
+     fi
+     sleep 1   # let the OS release handles
+     ```
+     NEVER use `taskkill /IM node.exe` or `pkill node` — those would also kill the orchestrator and any sibling pipeline.
+  2. `git worktree remove -f -f "<worktree_path>"` (double `-f` overrides locks and uncommitted-changes guards).
+  3. If step 2 still errors, fall back to `rm -rf "<worktree_path>"` (Unix) or `powershell -NoProfile -Command "Remove-Item -Recurse -Force '<worktree_path>'"` (Windows). Then run `git worktree prune` to drop the now-stale administrative entry.
+  4. Verify the path is gone (`[ -e "$WTP" ] && echo STILL_THERE || echo GONE`). Record the per-worktree outcome in the `cleanup` block of your output.
+- After all worktrees are handled, run `git worktree prune` once more as a safety net.
+- Delete the feature branch with `git branch -D <branch>` for branches that successfully merged. Skip branch deletion for branches listed under `unmerged` — the user may want to inspect them — but their worktree is still removed (per the rule above).
