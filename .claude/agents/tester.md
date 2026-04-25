@@ -42,7 +42,7 @@ If `assigned_port` isn't given, default to the framework's default and accept th
 ```yaml
 test:
   workstream_id: <id from prompt, or "single">
-  verdict: PASS | FAIL
+  verdict: PASS | FAIL | INCONCLUSIVE
   summary: <one-line>
   setup:
     server_started: true | false
@@ -50,24 +50,27 @@ test:
     base_url: <url or "n/a">
   flows_tested:
     - flow: <flow name from plan>
-      result: pass | fail
+      result: pass | fail | not-live   # "not-live" = could not live-exercise (auth wall, env, etc.)
+      live_evidence: snapshot | screenshot | none   # what proves the assertion (none = static-only)
       steps_executed: <count>
       failure: null   # or { step: ..., expected: ..., actual: ..., screenshot: ..., console: ... }
   edge_cases_tested:
     - case: <case name>
-      result: pass | fail
+      result: pass | fail | not-live
       failure: null
   console_errors:
     - <unexpected console.error or page errors>
   network_failures:
     - <unexpected 4xx/5xx>
+  not_live_reason: <if any flow is not-live, one-line reason — e.g., "Google OAuth blocks headless login">
 ```
 
 # Verdict rules
 
 - ANY flow `fail` → verdict `FAIL`.
 - ANY unexpected console error or unexpected network failure → `FAIL`.
-- All flows pass + no unexpected errors → `PASS`.
+- All flows live-exercised AND pass with no unexpected errors → `PASS`. "Live-exercised" means at least one `browser_snapshot` of the changed UI surface AFTER the change is rendered (not just the unauthenticated splash). Static code reading is NEVER sufficient evidence for `PASS` — that is the Reviewer's job, not yours.
+- Some flows could not be live-exercised (auth wall, missing env, etc.) but everything you DID exercise passed → `INCONCLUSIVE`. List the unreachable flows under `flows_tested` with `result: not-live` and explain in `not_live_reason`. The orchestrator treats `INCONCLUSIVE` as a yellow flag — it does NOT count as PASS for converging the workstream and the result report must call out the unverified surface area explicitly.
 - Playwright MCP unavailable → verdict `FAIL` with `summary: "Playwright MCP not available"`. Do NOT substitute curl/fetch.
 
 # Rules

@@ -23,9 +23,12 @@ The user's task is:
 Run the following Bash commands sequentially and capture results internally:
 - `git rev-parse --is-inside-work-tree`
 - `git rev-parse --abbrev-ref HEAD`
+- `git rev-parse HEAD` ← full SHA of base_branch tip at pipeline start
 - `date +%Y-%m-%d`
 
-Set `git_available`, `base_branch`, `report_date` from the results.
+Set `git_available`, `base_branch`, `base_sha`, `report_date` from the results.
+
+`base_sha` is the **freshness anchor** for every downstream agent. Coders must verify their worktree descends from it; the merger must verify each branch's merge-base equals it; the integration phase uses it as the pre-merge reference for scope-diff.
 
 Derive `task_slug` from `$ARGUMENTS`: lowercase, spaces → hyphens, keep only alphanumeric and hyphens, max 40 chars. (예: "로그인 버튼 추가" → "로그인-버튼-추가")
 
@@ -107,7 +110,9 @@ Capture both `review:` and `test:` blocks.
 
 `review.verdict == PASS` AND `test.verdict == PASS` → **결과 보고서 생성** 후 STOP.
 
-Otherwise: build `feedback:` block, go to Phase 5-S.
+If `test.verdict == INCONCLUSIVE` (some flows could not be live-exercised — e.g., auth wall) AND `review.verdict == PASS`: do NOT auto-converge. Surface the unreachable flows to the user in one sentence and ask whether to (a) accept and finalize, or (b) re-iterate with the inconclusive flows folded into the next coder feedback (e.g., adding a test-mode shim, env override, or alternative entry point). Only proceed to "STOP" after the user's choice.
+
+Otherwise (`FAIL` or user chose to re-iterate): build `feedback:` block, go to Phase 5-S.
 
 ## Phase 5-S — Self-Heal
 
@@ -121,18 +126,26 @@ Else: increment `iteration`. Spawn `coder` with the `feedback:` block. Capture n
 
 ## Phase 2-M — Parallel Implementation in Worktrees
 
-In ONE message, issue N Task calls in parallel — one per workstream — with `isolation: "worktree"`. Each prompt body:
+In ONE message, issue N Task calls in parallel — one per workstream — with `isolation: "worktree"`. Each prompt body MUST include `expected_base_sha` and explicit commit instructions:
 
 ```
 You are coder for workstream "<id>". Implement the workstream below.
 Return ONLY the implementation: yaml block.
 
+expected_base_sha: <base_sha from Phase 0>
+worktree commit policy: REQUIRED — see below.
+
 <paste the relevant single-workstream block from plan.workstreams here>
 ```
 
-The Task tool returns each agent's path and branch alongside its output. Track them as `workstream_state[id] = { branch, worktree_path, implementation, iteration: 1 }`.
+Coder responsibilities (enforced in coder.md):
+1. **Pre-flight base verification**: run `git merge-base --is-ancestor <expected_base_sha> HEAD`. If it fails, the worktree was created from a stale base — halt and return `build_status: failed` with `notes: ["worktree base is stale; expected ancestor <sha> not in history"]`. Do NOT attempt to implement against a stale codebase view.
+2. **Commit before returning**: after passing build/lint, run `git add -A && git commit -m "wip(<id>): <one-line summary>"`. Uncommitted work will be invisible to `git merge` and lost — committing is mandatory.
+3. Return `commit_sha` (full SHA of the commit just made) inside the implementation yaml block. The orchestrator and merger use this to verify integrity.
 
-If any workstream's `implementation.build_status == failed`: mark it as needing fix in next iteration. Don't include it in Phase 3-M; route those build failures to Phase 5-M directly.
+The Task tool returns each agent's path and branch alongside its output. Track them as `workstream_state[id] = { branch, worktree_path, implementation, commit_sha, iteration: 1 }`.
+
+If any workstream's `implementation.build_status == failed` (whether from stale base, build error, or any other reason): mark it as needing fix in next iteration. Don't include it in Phase 3-M; route those failures to Phase 5-M directly. A stale-base failure is NOT recoverable by the coder — surface it to the user as a pipeline abort if all workstreams fail with stale-base.
 
 ## Phase 3-M — Per-Workstream Parallel Validation
 
@@ -150,9 +163,10 @@ Capture each `review:` and `test:` block; route each to its workstream by `works
 
 For each workstream:
 - BOTH `review.verdict == PASS` AND `test.verdict == PASS` → mark `ready_to_merge`.
-- Otherwise → build a per-workstream `feedback:` block; mark for re-iteration.
+- `review.verdict == PASS` AND `test.verdict == INCONCLUSIVE` → mark `ready_to_merge_with_caveat`. The result report must list the unreachable flows under "잔여 이슈 / Live-render 미수행 항목". Do NOT silently treat this as PASS.
+- Otherwise (any `FAIL`) → build a per-workstream `feedback:` block; mark for re-iteration.
 
-If ALL workstreams are `ready_to_merge` → go to Phase 6-M (Merge).
+If ALL workstreams are `ready_to_merge` or `ready_to_merge_with_caveat` → go to Phase 6-M (Merge).
 Otherwise → go to Phase 5-M.
 
 ## Phase 5-M — Per-Workstream Self-Heal
@@ -171,6 +185,8 @@ Otherwise return to Phase 3-M (re-validate only the workstreams that were just r
 
 ## Phase 6-M — Merge
 
+Before invoking the merger, capture the **pre-merge SHA** of the base branch: `pre_merge_sha = git rev-parse <base_branch>` (this should equal `base_sha` from Phase 0 unless the base advanced during the run — note any drift). The integration phase uses this as the diff anchor.
+
 Spawn ONE `merger` subagent (NOT in worktree isolation — it works on the main repo). Prompt body:
 
 ```
@@ -178,16 +194,24 @@ Merge the following branches into <base_branch>. Return ONLY the merge: yaml blo
 
 merge_request:
   base_branch: <base_branch>
+  expected_base_sha: <base_sha from Phase 0>
   branches:
     - id: <workstream id>
       branch: <branch>
       worktree_path: <path>
+      commit_sha: <commit_sha from coder's implementation block>
       summary: <one line from implementation.notes or plan>
   shared_files:
     <copy from plan.shared_files>
   shared_concerns:
     <copy from plan.shared_concerns>
 ```
+
+The merger's pre-flight (enforced in merger.md) MUST verify, for each branch:
+- `git log --oneline <base_branch>..<branch>` is non-empty (the branch has unique commits — i.e., the coder actually committed work).
+- `git merge-base <base_branch> <branch>` equals `expected_base_sha` (the worktree was based on current main, not stale).
+
+If either check fails → abort with explicit `aborted_reason`. Do NOT manually copy worktree changes onto main as a workaround — that bypasses the merge resolution and silently absorbs whatever else was in the stale worktree. A stale base must be reported up to the user, not papered over.
 
 Capture `merge:` block.
 
@@ -198,13 +222,26 @@ Branches:
 
 ## Phase 7-M — Integration Validation
 
+Before spawning validators, compute the **scope-diff** between pre-merge and post-merge state:
+
+```bash
+git diff --name-only <pre_merge_sha>..HEAD
+```
+
+Build the `expected_files` set as the union of `plan.workstreams[*].files` (every file the planner explicitly authorized any workstream to touch). Any file in the diff but NOT in `expected_files` is an **out-of-scope change** that must be surfaced to the integration reviewer.
+
 ONE message, TWO Task calls in parallel on the merged main branch (no worktree path — main repo cwd):
-- `subagent_type: reviewer` — focused on `plan.shared_concerns` and any merger-flagged regressions.
-- `subagent_type: tester` — exercises ALL ui_flows from ALL workstreams (combined).
+- `subagent_type: reviewer` — focused on `plan.shared_concerns`, any merger-flagged regressions, AND the **scope-creep audit**. The prompt MUST include:
+  - `pre_merge_sha`, `post_merge_sha` (HEAD)
+  - `expected_files` (the planner's authorized scope)
+  - `actual_files` (the diff list)
+  - `out_of_scope_files` (set difference)
+  - Explicit instruction: for each out-of-scope file, decide whether the change was a justified side-effect (e.g., generated lockfile, formatter sweep) or an unrequested feature/regression. Treat unrequested user-facing behavior changes (UI elements, routes, copy, public API) as `severity: high` — they did NOT come from the user's request.
+- `subagent_type: tester` — exercises ALL ui_flows from ALL workstreams (combined). MUST also perform a **negative-space scan**: at least one snapshot of the unauthenticated landing screen and one snapshot of each major route/section, comparing visible UI elements (header chrome, nav, primary affordances) against the planner's request to flag any UI element that is present but was never requested. List those under `unrequested_ui` in the output.
 
-If both PASS → **결과 보고서 생성** 후 done.
+If both PASS (and no `unrequested_ui` items are present) → **결과 보고서 생성** 후 done.
 
-If any FAIL → spawn ONE final coder pass on the main repo (no worktree) with a feedback block aggregating the integration failures. After this single pass, run Phase 7-M one more time. If still failing → **결과 보고서 생성** (미해결 항목 포함) 후 STOP and surface remaining issues. (No infinite integration loop.)
+If any FAIL or `out_of_scope_files`/`unrequested_ui` is non-empty → spawn ONE final coder pass on the main repo (no worktree) with a feedback block aggregating the integration failures, scope-creep findings, and unrequested UI. After this single pass, run Phase 7-M one more time. If still failing → **결과 보고서 생성** (미해결 항목 포함) 후 STOP and surface remaining issues. (No infinite integration loop.)
 
 ---
 
@@ -247,6 +284,19 @@ Write a file at `docs/pipeline/{report_date}-result-{task_slug}.md` using the Wr
 ## 잔여 이슈
 
 {미해결 review/test 항목, 없으면 "없음"}
+
+---
+
+## Live-render 미수행 항목 (tester 가 INCONCLUSIVE 로 표시한 flow)
+
+{각 항목: 워크스트림 / flow 이름 / not_live_reason. 없으면 "없음"}
+
+---
+
+## Scope-creep / 요청 외 변경
+
+{integration 리뷰의 `out_of_scope_files` 와 `unrequested_ui` 결과. 없으면 "없음".
+사용자가 명시적으로 요청한 항목 외에 코드/UI 가 변경되었다면 — 머지에 흡수되었더라도 — 이 섹션에 반드시 기재한다.}
 
 ---
 
