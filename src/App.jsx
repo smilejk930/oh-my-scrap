@@ -5,6 +5,39 @@ import AddScrapDialog from "./components/AddScrapDialog";
 import { LogOut, Plus, List, LayoutGrid } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const UserAvatar = ({ user, size = 36 }) => {
+  const label = user.displayName || user.email || "?";
+  const initial = label.charAt(0).toUpperCase();
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      style={{ display: "inline-flex", flexShrink: 0, userSelect: "none", lineHeight: 0 }}
+    >
+      <svg width={size} height={size} viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" strokeWidth="5">
+          <path d="M 5 18 A 13 13 0 0 1 18 5" stroke="#EA4335" />
+          <path d="M 18 5 A 13 13 0 0 1 31 18" stroke="#FBBC05" />
+          <path d="M 31 18 A 13 13 0 0 1 18 31" stroke="#34A853" />
+          <path d="M 18 31 A 13 13 0 0 1 5 18" stroke="#4285F4" />
+        </g>
+        <text
+          x="18"
+          y="18"
+          fontFamily="Arial, Helvetica, sans-serif"
+          fontSize="14"
+          fontWeight="700"
+          fill="#4285F4"
+          textAnchor="middle"
+          dominantBaseline="central"
+        >
+          {initial}
+        </text>
+      </svg>
+    </span>
+  );
+};
+
 const MainApp = () => {
   const { user, login, logout } = useAuth();
   const [viewMode, setViewMode] = useState("list");
@@ -134,9 +167,7 @@ const MainApp = () => {
               >
                 <LogOut size={20} />
               </motion.button>
-              <span className="user-avatar" title={(user.displayName || user.email || '?')}>
-                {(user.displayName || user.email || '?').charAt(0).toUpperCase()}
-              </span>
+              <UserAvatar user={user} />
             </div>
           </header>
 
@@ -160,9 +191,7 @@ const MainApp = () => {
                 <LogOut size={16} />
                 <span>Sign Out</span>
               </button>
-              <span className="user-avatar" title={(user.displayName || user.email || '?')}>
-                {(user.displayName || user.email || '?').charAt(0).toUpperCase()}
-              </span>
+              <UserAvatar user={user} />
             </div>
           </div>
 
