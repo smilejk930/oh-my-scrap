@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "oh-my-scrap"
+  },
   "targets": {},
   "etags": {}
 }

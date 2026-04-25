@@ -11,19 +11,30 @@ The user's task is:
 
 # Hard rules for this turn
 
-1. NEVER edit, write, or delete files yourself. Delegate to `coder` (and `merger` for git operations).
+1. NEVER edit, write, or delete files yourself — **except for report files under `docs/pipeline/`**, which you write directly using the Write tool.
 2. NEVER do the planner's, reviewer's, tester's, or merger's job inline. Delegate via the `Task` tool.
 3. Forward ONLY structured yaml blocks (`plan:`, `implementation:`, `review:`, `test:`, `feedback:`, `merge:`) between phases. Don't paste your commentary into a subagent's prompt.
 4. Surface ONE short sentence to the user between phases.
 5. Maintain a per-workstream `iteration` counter starting at 1. Cap at 3 per workstream. Workstreams that converge early stay frozen — don't redo them.
+6. **모든 보고서는 한글로 작성한다.**
 
 # Phase 0 — Environment probe
 
-Run two Bash commands sequentially, capture results internally:
-- `git rev-parse --is-inside-work-tree` (is this a git repo?)
-- `git rev-parse --abbrev-ref HEAD` (what's the current branch?)
+Run the following Bash commands sequentially and capture results internally:
+- `git rev-parse --is-inside-work-tree`
+- `git rev-parse --abbrev-ref HEAD`
+- `date +%Y-%m-%d`
 
-Set `git_available` and `base_branch` from the results. If `git_available != true`, you cannot use worktree isolation — the multi-feature flow falls back to sequential.
+Set `git_available`, `base_branch`, `report_date` from the results.
+
+Derive `task_slug` from `$ARGUMENTS`: lowercase, spaces → hyphens, keep only alphanumeric and hyphens, max 40 chars. (예: "로그인 버튼 추가" → "로그인-버튼-추가")
+
+Also run:
+```bash
+mkdir -p docs/pipeline
+```
+
+If `git_available != true`, you cannot use worktree isolation — the multi-feature flow falls back to sequential.
 
 # Phase 1 — Plan
 
@@ -36,6 +47,41 @@ Branch on the result:
 Tell the user one of:
 - "Plan ready. N workstreams will run in parallel worktrees."
 - "Plan ready. Single sequential flow (reason: <one-line from plan.reason>)."
+
+## 계획 보고서 생성 (Phase 1 완료 후 즉시)
+
+Write a file at `docs/pipeline/{report_date}-plan-{task_slug}.md` using the Write tool. 내용은 아래 형식으로 **한글**로 작성:
+
+```markdown
+# 파이프라인 계획 보고서
+
+**날짜**: {report_date}
+**요청 내용**: {$ARGUMENTS}
+**실행 방식**: 단일 플로우 | {N}개 병렬 워크스트림
+
+---
+
+## 워크스트림 목록
+
+(워크스트림이 여러 개일 경우 각각 섹션으로 나열)
+
+### 워크스트림 1: {id}
+- **목표**: {workstream 목표 설명}
+- **주요 작업 파일**: {files}
+- **의존성**: {dependencies or "없음"}
+
+---
+
+## 공유 파일 및 충돌 주의 항목
+
+{plan.shared_files 및 plan.shared_concerns 내용, 없으면 "없음"}
+
+---
+
+## 비고
+
+{plan에서 특이사항이 있으면 기재, 없으면 생략}
+```
 
 ---
 
@@ -59,13 +105,13 @@ Capture both `review:` and `test:` blocks.
 
 ## Phase 4-S — Aggregate
 
-`review.verdict == PASS` AND `test.verdict == PASS` → done. Report 3-5 line summary. STOP.
+`review.verdict == PASS` AND `test.verdict == PASS` → **결과 보고서 생성** 후 STOP.
 
 Otherwise: build `feedback:` block, go to Phase 5-S.
 
 ## Phase 5-S — Self-Heal
 
-If `iteration >= 3`: STOP. Report unresolved items.
+If `iteration >= 3`: **결과 보고서 생성** (미해결 항목 포함) 후 STOP. Report unresolved items.
 
 Else: increment `iteration`. Spawn `coder` with the `feedback:` block. Capture new `implementation:` block. Return to Phase 3-S.
 
@@ -148,7 +194,7 @@ Capture `merge:` block.
 Branches:
 - `merge.status == success` AND `merge.build_status == passed` → go to Phase 7-M.
 - `merge.status == partial` OR `merge.regressions` non-empty → go to Phase 7-M but flag the issues in the final report.
-- `merge.status == aborted` → STOP, report `merge.aborted_reason` to the user.
+- `merge.status == aborted` → **결과 보고서 생성** (실패 상태) 후 STOP, report `merge.aborted_reason` to the user.
 
 ## Phase 7-M — Integration Validation
 
@@ -156,9 +202,58 @@ ONE message, TWO Task calls in parallel on the merged main branch (no worktree p
 - `subagent_type: reviewer` — focused on `plan.shared_concerns` and any merger-flagged regressions.
 - `subagent_type: tester` — exercises ALL ui_flows from ALL workstreams (combined).
 
-If both PASS → done. Report 5-8 line final summary: workstreams, files touched, iterations per workstream, merger conflict notes, integration result.
+If both PASS → **결과 보고서 생성** 후 done.
 
-If any FAIL → spawn ONE final coder pass on the main repo (no worktree) with a feedback block aggregating the integration failures. After this single pass, run Phase 7-M one more time. If still failing → STOP and surface remaining issues. (No infinite integration loop.)
+If any FAIL → spawn ONE final coder pass on the main repo (no worktree) with a feedback block aggregating the integration failures. After this single pass, run Phase 7-M one more time. If still failing → **결과 보고서 생성** (미해결 항목 포함) 후 STOP and surface remaining issues. (No infinite integration loop.)
+
+---
+
+# 결과 보고서 생성 (완료/중단 시점마다 실행)
+
+Write a file at `docs/pipeline/{report_date}-result-{task_slug}.md` using the Write tool. 내용은 아래 형식으로 **한글**로 작성:
+
+```markdown
+# 파이프라인 결과 보고서
+
+**날짜**: {report_date}
+**요청 내용**: {$ARGUMENTS}
+**최종 상태**: 성공 | 부분 성공 | 실패
+
+---
+
+## 워크스트림별 결과
+
+| 워크스트림 | 반복 횟수 | 상태 | 주요 변경 파일 |
+|-----------|----------|------|--------------|
+| {id}      | {N}회    | 통과/미수렴 | {files} |
+
+---
+
+## 머지 결과
+
+- **머지 상태**: {merge.status or "단일 플로우 (머지 없음)"}
+- **충돌 해결 항목**: {merge conflict notes or "없음"}
+- **빌드 상태**: {merge.build_status or "단일 플로우"}
+
+---
+
+## 통합 검증 결과
+
+- **리뷰**: {PASS/FAIL}
+- **테스트**: {PASS/FAIL}
+
+---
+
+## 잔여 이슈
+
+{미해결 review/test 항목, 없으면 "없음"}
+
+---
+
+## 비고
+
+{특이사항 있으면 기재, 없으면 생략}
+```
 
 ---
 
@@ -206,3 +301,5 @@ Between phases, exactly one short line. Examples:
 - Worktree paths returned by Task with `isolation: "worktree"` are absolute. Pass them verbatim to subsequent reviewer/tester/coder Tasks for that workstream.
 - Re-iterating a workstream MUST reuse its existing worktree_path (the orchestrator passes it; the Coder sees the worktree as cwd via the same isolation parameter, OR the orchestrator passes `worktree_path` in the prompt and the Coder cd's into it — pick one approach and stick to it; the simplest is to just include `isolation: "worktree"` again with the same branch name, but Claude Code's Task tool re-uses the existing worktree if the branch matches).
 - When in doubt about whether to fan out, prefer the Single Flow — it's simpler and always correct.
+- **보고서 파일 경로**: `docs/pipeline/{report_date}-plan-{task_slug}.md` / `docs/pipeline/{report_date}-result-{task_slug}.md`
+- **보고서는 반드시 한글로 작성**한다. 기술 용어(파일명, 함수명 등)는 영문 유지.
