@@ -126,15 +126,16 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
 
   // List Mode
   return (
-    <motion.div 
+    <>
+    <motion.div
       layout
       transition={{ layout: { duration: 0.12, ease: "easeOut" } }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={`card ${isSelected ? "selected" : ""}`} 
-      style={{ 
-        padding: "12px", 
-        marginBottom: "0", 
+      className={`card ${isSelected ? "selected" : ""}`}
+      style={{
+        padding: "12px",
+        marginBottom: "0",
         border: isSelected ? "2px solid #0071E3" : "1px solid rgba(0,0,0,0.05)",
         cursor: "pointer",
         transition: "all 0.2s ease"
@@ -227,12 +228,13 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           </button>
         </motion.div>
       )}
-      <AnimatePresence>
-        {isReAnalyzeOpen && (
-          <ReAnalyzeDialog scrap={scrap} onClose={() => setIsReAnalyzeOpen(false)} />
-        )}
-      </AnimatePresence>
     </motion.div>
+    <AnimatePresence>
+      {isReAnalyzeOpen && (
+        <ReAnalyzeDialog scrap={scrap} onClose={() => setIsReAnalyzeOpen(false)} />
+      )}
+    </AnimatePresence>
+    </>
   );
 };
 
