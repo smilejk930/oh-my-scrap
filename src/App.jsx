@@ -1,23 +1,65 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import InputSection from "./components/InputSection";
 import ScrapList from "./components/ScrapList";
-import AddScrapDialog from "./components/AddScrapDialog";
-import { LogOut, Plus, List, LayoutGrid } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { LogOut, PlusCircle, List, LayoutGrid } from "lucide-react";
+import { motion } from "framer-motion";
 
 const MainApp = () => {
-  const { user, login, logout } = useAuth();
+  // 인증 컨텍스트에서 유저 정보와 로그인/로그아웃 함수 가져오기
+  const { user, login, logout, updateLanguage, preferredLanguage, updateUseAi, useAi } = useAuth();
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("activeTab") || "input";
+  });
   const [viewMode, setViewMode] = useState("list");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Login screen
+  useEffect(() => {
+    localStorage.setItem("activeTab", activeTab);
+  }, [activeTab]);
+
+
+  const LanguageToggle = () => (
+    <div className="language-toggle">
+      <button
+        className={`lang-btn ${preferredLanguage === "en" ? "active" : ""}`}
+        onClick={() => updateLanguage("en")}
+      >
+        EN
+      </button>
+      <button
+        className={`lang-btn ${preferredLanguage === "ko" ? "active" : ""}`}
+        onClick={() => updateLanguage("ko")}
+      >
+        KO
+      </button>
+    </div>
+  );
+
+  const AiToggle = () => (
+    <div className="language-toggle">
+      <button
+        className={`lang-btn ${!useAi ? "active" : ""}`}
+        onClick={() => updateUseAi(false)}
+      >
+        OFF
+      </button>
+      <button
+        className={`lang-btn ${useAi ? "active" : ""}`}
+        onClick={() => updateUseAi(true)}
+      >
+        AI
+      </button>
+    </div>
+  );
+
+  // 로그인하지 않은 경우 로그인 화면 표시 (Stitch 디자인 적용)
   if (!user) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-color)", color: "var(--text-primary)", position: "relative", overflow: "hidden" }}>
-
+        
         {/* Background Decoration Image (Subtle Texture) */}
-        <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, height: "70vh", maxHeight: "800px",
+        <div style={{ 
+          position: "fixed", bottom: 0, left: 0, right: 0, height: "70vh", maxHeight: "800px", 
           zIndex: 0, opacity: 0.4, pointerEvents: "none",
           display: "flex", justifyContent: "center", alignItems: "flex-end",
           maskImage: "linear-gradient(to top, black 50%, transparent 100%)",
@@ -28,10 +70,10 @@ const MainApp = () => {
             maskImage: "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)"
           }}>
-            <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCb-dy6bSveEyQqw973aodKszeup0x41_VdKMu0sTcD4ukt4n6j5xdZpY_aNHQA3Pf-nDU3uZt30308PXBkJxbTYfDjMoDlfBWn4AkWNa6Gk3R-9V6vvtewgQfsAe3ST5eWUpNtsIukDrzFpOKCl5qvyYZoxkH28pkUKS-89pcPiklnRnQ-NnnYvTPLzNdvzKG1mwJRcZACt_5Amg0TaxIoiiWoq0D-R_QGKg4ubglsmpUCUfzpoOiLG8GDt3l11RHE8PUZ6klAzgfq"
-              alt="background texture"
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center bottom", filter: "grayscale(100%)", mixBlendMode: "multiply" }}
+            <img 
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCb-dy6bSveEyQqw973aodKszeup0x41_VdKMu0sTcD4ukt4n6j5xdZpY_aNHQA3Pf-nDU3uZt30308PXBkJxbTYfDjMoDlfBWn4AkWNa6Gk3R-9V6vvtewgQfsAe3ST5eWUpNtsIukDrzFpOKCl5qvyYZoxkH28pkUKS-89pcPiklnRnQ-NnnYvTPLzNdvzKG1mwJRcZACt_5Amg0TaxIoiiWoq0D-R_QGKg4ubglsmpUCUfzpoOiLG8GDt3l11RHE8PUZ6klAzgfq" 
+              alt="background texture" 
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center bottom", filter: "grayscale(100%)", mixBlendMode: "multiply" }} 
             />
           </div>
         </div>
@@ -39,7 +81,7 @@ const MainApp = () => {
         {/* Hero Section / Branding */}
         <main style={{ flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 32px 48px", position: "relative", zIndex: 1 }}>
           <div style={{ width: "100%", maxWidth: "896px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-
+            
             {/* Atmospheric Depth Elements */}
             <div style={{ position: "absolute", inset: 0, zIndex: -1, overflow: "hidden", pointerEvents: "none" }}>
               <div style={{ position: "absolute", top: "-10%", left: "-10%", width: "50%", height: "50%", borderRadius: "50%", background: "rgba(228, 233, 238, 0.4)", filter: "blur(120px)" }}></div>
@@ -58,7 +100,7 @@ const MainApp = () => {
 
             {/* Call to Action Section */}
             <div style={{ width: "100%", maxWidth: "384px" }}>
-              <button
+              <button 
                 onClick={async () => {
                   try {
                     await login();
@@ -66,8 +108,8 @@ const MainApp = () => {
                     console.error("Login failed:", error);
                     alert("An error occurred during login. Please disable pop-up blockers or ensure you are using the production URL.");
                   }
-                }}
-                style={{
+                }} 
+                style={{ 
                   width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "16px",
                   padding: "20px 32px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.2)",
                   background: "linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(242, 244, 246, 0.8))",
@@ -108,85 +150,113 @@ const MainApp = () => {
 
   return (
     <div className="app-layout">
+      {/* --- Desktop Sidebar --- */}
+      <aside className="sidebar desktop-only">
+        <div className="sidebar-logo">Oh My Scrap</div>
+        <nav className="sidebar-nav">
+          <button 
+            className={`sidebar-nav-item ${activeTab === "input" ? "active" : ""}`}
+            onClick={() => setActiveTab("input")}
+          >
+            <PlusCircle size={20} />
+            <span>Add Scrap</span>
+          </button>
+          <button 
+            className={`sidebar-nav-item ${activeTab === "list" ? "active" : ""}`}
+            onClick={() => setActiveTab("list")}
+          >
+            <List size={20} />
+            <span>My Archive</span>
+          </button>
+        </nav>
+        <div className="sidebar-footer">
+          <AiToggle />
+          <LanguageToggle />
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button className="btn btn-secondary" onClick={logout} style={{ flex: 1, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }} title="Sign Out">
+              <LogOut size={16} />
+              <span>Sign Out</span>
+            </button>
+            <span className="user-avatar" title={(user.displayName || user.email || '?')}>
+              {(user.displayName || user.email || '?').charAt(0).toUpperCase()}
+            </span>
+          </div>
+        </div>
+      </aside>
+
       {/* --- Main Content Area --- */}
       <main className="main-content">
         <div className="container">
           {/* Mobile Header (Hidden on Desktop) */}
-          <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "center" }}>
-            <h1 style={{ fontSize: "24px", fontWeight: "700", letterSpacing: "-0.03em" }}>Oh My Scrap</h1>
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={logout}
-              style={{
-                width: "38px",
-                height: "38px",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(0, 0, 0, 0.04)",
-                border: "none",
-                color: "#3A3A3C",
-                cursor: "pointer"
-              }}
-              title="Sign Out"
-            >
-              <LogOut size={20} />
-            </motion.button>
-          </header>
+          <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "flex-start" }}>
+            <div className="mobile-header-left">
+              <h1 style={{ marginBottom: "5px" }}>{activeTab === "input" ? "Add Scrap" : "My Archive"}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <AiToggle />
+                <LanguageToggle />
+                {activeTab === "list" && (
+                  <div style={{ display: "flex", gap: "4px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
+                    <button 
+                      onClick={() => setViewMode("list")}
+                      style={{ background: viewMode === "list" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+                    >
+                      <List size={14} color={viewMode === "list" ? "#0071E3" : "#86868B"} />
+                    </button>
+                    <button 
+                      onClick={() => setViewMode("card")}
+                      style={{ background: viewMode === "card" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+                    >
+                      <LayoutGrid size={14} color={viewMode === "card" ? "#0071E3" : "#86868B"} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", paddingTop: "5px" }}>
 
-          {/* Desktop Header (Hidden on Mobile) */}
-          <div className="desktop-header desktop-only">
-            <h1>Oh My Scrap</h1>
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <motion.button
                 whileTap={{ scale: 0.92 }}
-                onClick={() => setIsDialogOpen(true)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "10px 18px",
-                  borderRadius: "20px",
-                  border: "none",
-                  background: "var(--accent-color)",
-                  color: "#fff",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                  boxShadow: "0 4px 14px rgba(0,113,227,0.3)"
-                }}
-              >
-                <Plus size={16} />
-                <span>Add</span>
-              </motion.button>
-              <button
-                className="btn btn-secondary"
                 onClick={logout}
                 style={{
-                  padding: "10px 14px",
+                  width: "38px",
+                  height: "38px",
+                  borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "8px",
-                  fontSize: "13px"
+                  background: "rgba(0, 0, 0, 0.04)",
+                  border: "none",
+                  color: "#3A3A3C",
+                  cursor: "pointer"
                 }}
                 title="Sign Out"
               >
-                <LogOut size={16} />
-                <span>Sign Out</span>
-              </button>
+                <LogOut size={20} />
+              </motion.button>
+              <span className="user-avatar" title={(user.displayName || user.email || '?')}>
+                {(user.displayName || user.email || '?').charAt(0).toUpperCase()}
+              </span>
             </div>
+          </header>
+
+          {/* Desktop Title (Hidden on Mobile) */}
+          <div className="desktop-header desktop-only">
+            <h1>{activeTab === "input" ? "Add New Scrap" : "My Archive"}</h1>
           </div>
 
-          {/* Always show ScrapList */}
-          <ScrapList viewMode={viewMode} setViewMode={setViewMode} />
+          {/* Content Route */}
+          {activeTab === "input" ? (
+            <InputSection onSuccess={() => setActiveTab("list")} />
+          ) : (
+            <ScrapList viewMode={viewMode} setViewMode={setViewMode} onAddClick={() => setActiveTab("input")} />
+          )}
 
           <div className="mobile-only mobile-bottom-spacer"></div>
         </div>
       </main>
 
-      {/* --- Mobile Bottom Navigation (exactly two items) --- */}
+      {/* --- Mobile Bottom Navigation --- */}
       <nav className="mobile-only" style={{
         position: "fixed",
         bottom: 0,
@@ -197,59 +267,31 @@ const MainApp = () => {
         WebkitBackdropFilter: "blur(30px) saturate(180%)",
         borderTop: "1px solid rgba(172, 179, 184, 0.15)",
         display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "12px 24px calc(12px + env(safe-area-inset-bottom))",
+        justifyContent: "space-around",
+        padding: "16px 0 calc(16px + env(safe-area-inset-bottom))",
         zIndex: 100
       }}>
-        {/* Left: view-mode toggle pill */}
-        <div className="language-toggle">
-          <button
-            className={`lang-btn ${viewMode === "list" ? "active" : ""}`}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            <List size={14} />
-          </button>
-          <button
-            className={`lang-btn ${viewMode === "card" ? "active" : ""}`}
-            onClick={() => setViewMode("card")}
-            title="Card view"
-          >
-            <LayoutGrid size={14} />
-          </button>
-        </div>
-
-        {/* Right: Add button */}
-        <motion.button
-          whileTap={{ scale: 0.92 }}
-          onClick={() => setIsDialogOpen(true)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "10px 18px",
-            borderRadius: "20px",
-            border: "none",
-            background: "var(--accent-color)",
-            color: "#fff",
-            fontWeight: "600",
-            fontSize: "14px",
-            cursor: "pointer",
-            boxShadow: "0 4px 14px rgba(0,113,227,0.3)"
+        <button 
+          onClick={() => setActiveTab("input")}
+          style={{ 
+            background: "none", border: "none", color: activeTab === "input" ? "var(--accent-color)" : "var(--text-secondary)",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer"
           }}
         >
-          <Plus size={16} />
-          <span>Add</span>
-        </motion.button>
+          <PlusCircle size={24} />
+          <span style={{ fontSize: "11px", fontWeight: "600" }}>Input</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("list")}
+          style={{ 
+            background: "none", border: "none", color: activeTab === "list" ? "var(--accent-color)" : "var(--text-secondary)",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer"
+          }}
+        >
+          <List size={24} strokeWidth={activeTab === "list" ? 2.5 : 2} />
+          <span style={{ fontSize: "11px", fontWeight: "600", letterSpacing: "0.02em" }}>Archive</span>
+        </button>
       </nav>
-
-      {/* Add Scrap Dialog — rendered only when open so useState defaults reset on each open */}
-      <AnimatePresence>
-        {isDialogOpen && (
-          <AddScrapDialog key="add-scrap-dialog" onClose={() => setIsDialogOpen(false)} />
-        )}
-      </AnimatePresence>
     </div>
   );
 };

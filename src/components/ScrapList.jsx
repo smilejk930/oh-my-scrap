@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebase";
-import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import ScrapItem from "./ScrapItem";
-import { Search, LayoutGrid, List as ListIcon, Calendar, X, Loader2 } from "lucide-react";
-import { format, subDays, startOfDay } from "date-fns";
+import { Search, LayoutGrid, List as ListIcon, X, Loader2, Plus } from "lucide-react";
+import { motion } from "framer-motion";
+import { subDays, startOfDay } from "date-fns";
 
-const ScrapList = ({ viewMode, setViewMode }) => {
+const ScrapList = ({ viewMode, setViewMode, onAddClick }) => {
   const { user } = useAuth();
   const [scraps, setScraps] = useState([]); // Firestore에서 불러온 스크랩 전체 목록
   const [searchTerm, setSearchTerm] = useState(""); // 검색어 상태
@@ -115,21 +116,44 @@ const ScrapList = ({ viewMode, setViewMode }) => {
               </button>
             ))}
           </div>
-          <div className="desktop-only language-toggle">
-            <button
-              className={`lang-btn lang-btn-icon ${viewMode === "list" ? "active" : ""}`}
-              onClick={() => setViewMode("list")}
-              title="List view"
-            >
-              <ListIcon size={14} />
-            </button>
-            <button
-              className={`lang-btn lang-btn-icon ${viewMode === "card" ? "active" : ""}`}
-              onClick={() => setViewMode("card")}
-              title="Card view"
-            >
-              <LayoutGrid size={14} />
-            </button>
+          <div className="desktop-only" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "5px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
+              <button
+                onClick={() => setViewMode("list")}
+                style={{ background: viewMode === "list" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+              >
+                <ListIcon size={18} color={viewMode === "list" ? "#0071E3" : "#86868B"} />
+              </button>
+              <button
+                onClick={() => setViewMode("card")}
+                style={{ background: viewMode === "card" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+              >
+                <LayoutGrid size={18} color={viewMode === "card" ? "#0071E3" : "#86868B"} />
+              </button>
+            </div>
+            {onAddClick && (
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.05 }}
+                onClick={onAddClick}
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  background: "var(--accent-color)",
+                  border: "none",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0
+                }}
+                title="Add Scrap"
+              >
+                <Plus size={18} />
+              </motion.button>
+            )}
           </div>
         </div>
       </div>
@@ -176,8 +200,13 @@ const ScrapList = ({ viewMode, setViewMode }) => {
                   <img
                     src={selectedScrap.thumbnail || "/placeholder.svg"}
                     alt="thumbnail"
-                    style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", display: "block" }}
+                    style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", display: "block", cursor: "pointer" }}
+                    onClick={() => window.open(selectedScrap.url, "_blank", "noopener,noreferrer")}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.92"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                     onError={(e) => e.target.src = "/placeholder.svg"}
+                    title="Open original page"
+                    aria-label="Open original page in new tab"
                   />
                 </div>
 
@@ -202,33 +231,6 @@ const ScrapList = ({ viewMode, setViewMode }) => {
                   </p>
                 </div>
 
-                {/* 액션 버튼 */}
-                <div style={{ flexShrink: 0, display: "flex", gap: "10px", marginTop: "14px" }}>
-                  <button
-                    className="btn"
-                    style={{ flex: 1, padding: "12px", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-                    onClick={() => window.open(selectedScrap.url, "_blank")}
-                  >
-                    View Original
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ flex: 1, padding: "12px", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "rgba(255, 59, 48, 0.1)", color: "#FF3B30", border: "none" }}
-                    onClick={async () => {
-                      if (window.confirm("Are you sure you want to delete this?")) {
-                        try {
-                          await deleteDoc(doc(db, "scraps", selectedScrap.id));
-                          setSelectedScrap(null);
-                        } catch (error) {
-                          console.error(error);
-                          alert("An error occurred while deleting.");
-                        }
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
               </div>
             </div>
           )}
