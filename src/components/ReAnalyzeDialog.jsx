@@ -73,7 +73,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
   const handleAnalyze = async () => {
     if (analyzing) return;
     setAnalyzing(true);
-    setStatus(localLang === "ko" ? "URL 정보 가져오는 중..." : "Fetching URL information...");
+    setStatus("Fetching URL information...");
 
     try {
       const {
@@ -94,7 +94,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
           fullSummary: description || "",
         };
       } else if (skipAi) {
-        setStatus(localLang === "ko" ? "긴 영상 감지됨. AI 생략 중..." : "Long video detected. Skipping AI...");
+        setStatus("Long video detected. Skipping AI...");
         analysis = {
           title,
           tags: ["YouTube", "Video"],
@@ -102,11 +102,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
         };
         await new Promise((resolve) => setTimeout(resolve, 800));
       } else {
-        setStatus(
-          isYoutubeVideo
-            ? (localLang === "ko" ? "AI가 영상을 분석 중..." : "AI is watching the video...")
-            : (localLang === "ko" ? "AI가 내용을 분석 중..." : "AI is analyzing content...")
-        );
+        setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
         const canonicalUrl = isYoutubeVideo ? normalizeYoutubeUrl(scrap.url) : null;
         analysis = await analyzeContent(content, localLang, canonicalUrl);
       }
@@ -129,7 +125,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
 
       await updateDoc(doc(db, "scraps", scrap.id), updatePayload);
 
-      setStatus(localLang === "ko" ? "업데이트 완료!" : "Updated successfully!");
+      setStatus("Updated successfully!");
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
       onClose();
@@ -274,10 +270,10 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
           {analyzing ? (
             <>
               <Loader2 className="animate-spin" size={18} />
-              {localLang === "ko" ? "분석 중..." : "Analyzing..."}
+              Analyzing...
             </>
           ) : (
-            localLang === "ko" ? "분석하기" : "Analyze"
+            "Analyze"
           )}
         </button>
       </motion.div>
