@@ -225,7 +225,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           animate={{ height: "auto", opacity: 1 }}
           style={{ marginTop: "15px", paddingTop: "15px", borderTop: "1px solid rgba(0,0,0,0.05)" }}
         >
-          <p style={{ fontSize: "14px", color: "#424245", marginBottom: "15px" }}>{scrap.fullSummary}</p>
+          <p style={{ fontSize: "14px", color: "#424245", marginBottom: "15px", whiteSpace: "pre-wrap" }}>{scrap.fullSummary}</p>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <button className="btn btn-secondary" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} onClick={handleOpen}>
               <ExternalLink size={16} />

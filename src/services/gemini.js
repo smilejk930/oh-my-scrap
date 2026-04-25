@@ -19,6 +19,36 @@ export const analyzeContent = async (content, language = "en", videoUrl = null) 
     ? `the following YouTube video (additional metadata: ${safeContent})`
     : `the following webpage content.\nContent: ${safeContent}`;
 
+  const recipeFullSummaryFormat = isKorean
+    ? `음식/요리 레시피 콘텐츠일 경우 아래 형식의 일반 텍스트로 작성하세요(마크다운 금지, 줄바꿈은 \\n 사용):
+        [요리 소개]
+        한두 문장으로 어떤 요리인지 간단히 소개합니다.
+
+        [재료]
+        - 재료1: 분량
+        - 재료2: 분량
+        ...
+
+        [만드는 법]
+        1. 첫 번째 단계
+        2. 두 번째 단계
+        ...
+       콘텐츠에 명시되지 않은 재료/단계는 임의로 만들지 말고, 본문에 등장한 정보만 사용해 정리하세요. 분량이 명시되지 않은 재료는 '적당량'으로 표기하세요.`
+    : `If the content is a food/cooking recipe, write it as plain text (no markdown, use \\n for line breaks) in this exact structure:
+        [About]
+        One or two sentences describing the dish.
+
+        [Ingredients]
+        - ingredient 1: amount
+        - ingredient 2: amount
+        ...
+
+        [Instructions]
+        1. First step
+        2. Second step
+        ...
+       Do not invent ingredients or steps that are not in the source content; if an amount is missing, write 'to taste'.`;
+
   const prompt = `
     Analyze ${subject} and return it in JSON format.
 
@@ -26,7 +56,7 @@ export const analyzeContent = async (content, language = "en", videoUrl = null) 
     {
       "title": "A punchy headline within 40 characters",
       "tags": ["tag1", "tag2", "tag3"], // Up to 3 tags
-      "fullSummary": "Core content summarized in 2-3 sentences"
+      "fullSummary": "See rules below"
     }
 
     Requirements:
@@ -34,6 +64,12 @@ export const analyzeContent = async (content, language = "en", videoUrl = null) 
     - Return ONLY the JSON object.
     - All output (title, tags, fullSummary) must be in ${isKorean ? "Korean (한국어)" : "English"}.
     - ${isKorean ? "태그는 사회적으로 통용되는 검색하기 쉬운 키워드 위주로 작성하세요." : "Tags should be common searchable keywords."}
+
+    fullSummary rules:
+    - First, decide whether the content is primarily a food/cooking recipe (e.g., describes a dish along with how to make it, ingredients, or cooking steps).
+    - If it IS a recipe: ${recipeFullSummaryFormat}
+    - If it is NOT a recipe: summarize the core content in 2-3 sentences as plain prose.
+    - When the content is a recipe, also include "${isKorean ? "레시피" : "Recipe"}" as one of the tags.
   `;
 
   // YouTube URL은 Gemini API가 정규 형식(youtube.com/watch?v=ID)만 인식하므로 youtu.be/공유 파라미터 등을 정리
