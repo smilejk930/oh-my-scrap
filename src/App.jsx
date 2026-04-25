@@ -139,21 +139,27 @@ const MainApp = () => {
           <div className="desktop-header desktop-only">
             <h1>Oh My Scrap</h1>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <button
-                className="btn btn-primary"
+              <motion.button
+                whileTap={{ scale: 0.92 }}
                 onClick={() => setIsDialogOpen(true)}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
                   padding: "10px 18px",
+                  borderRadius: "20px",
+                  border: "none",
+                  background: "var(--accent-color)",
+                  color: "#fff",
+                  fontWeight: "600",
                   fontSize: "14px",
-                  borderRadius: "12px"
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(0,113,227,0.3)"
                 }}
               >
                 <Plus size={16} />
                 <span>Add</span>
-              </button>
+              </motion.button>
               <button
                 className="btn btn-secondary"
                 onClick={logout}

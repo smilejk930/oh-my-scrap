@@ -154,6 +154,8 @@ const AddScrapDialog = ({ onClose }) => {
           exit={{ opacity: 0, y: 40 }}
           transition={{ type: "spring", damping: 26, stiffness: 280 }}
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
             {/* Header */}
             <div className="dialog-header">
@@ -268,6 +270,7 @@ const AddScrapDialog = ({ onClose }) => {
                 placeholder="https://example.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                onContextMenu={(e) => e.stopPropagation()}
                 disabled={loading}
                 required
                 style={{ flex: 1, margin: 0 }}

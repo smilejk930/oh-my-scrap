@@ -117,18 +117,16 @@ const ScrapList = ({ viewMode, setViewMode }) => {
           </div>
           <div className="desktop-only language-toggle">
             <button
-              className={`lang-btn ${viewMode === "list" ? "active" : ""}`}
+              className={`lang-btn lang-btn-icon ${viewMode === "list" ? "active" : ""}`}
               onClick={() => setViewMode("list")}
               title="List view"
-              style={{ display: "flex", alignItems: "center" }}
             >
               <ListIcon size={14} />
             </button>
             <button
-              className={`lang-btn ${viewMode === "card" ? "active" : ""}`}
+              className={`lang-btn lang-btn-icon ${viewMode === "card" ? "active" : ""}`}
               onClick={() => setViewMode("card")}
               title="Card view"
-              style={{ display: "flex", alignItems: "center" }}
             >
               <LayoutGrid size={14} />
             </button>
