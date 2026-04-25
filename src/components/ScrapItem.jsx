@@ -172,46 +172,50 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
               </button>
             )
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}
-            title="Re-analyze"
-            style={{
-              width: "32px",
-              height: "32px",
-              padding: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "50%",
-              border: "none",
-              background: "transparent",
-              color: "var(--accent-color)",
-              cursor: "pointer",
-              flexShrink: 0
-            }}
-          >
-            <RefreshCw size={16} />
-          </button>
-          <button
-            onClick={handleDelete}
-            title="Delete"
-            style={{
-              width: "32px",
-              height: "32px",
-              padding: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "50%",
-              border: "none",
-              background: "transparent",
-              color: "#FF3B30",
-              cursor: "pointer",
-              flexShrink: 0
-            }}
-          >
-            <Trash2 size={18} />
-          </button>
+          {isDesktop && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}
+              title="Re-analyze"
+              style={{
+                width: "32px",
+                height: "32px",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                border: "none",
+                background: "transparent",
+                color: "var(--accent-color)",
+                cursor: "pointer",
+                flexShrink: 0
+              }}
+            >
+              <RefreshCw size={16} />
+            </button>
+          )}
+          {(isDesktop || !scrap.title) && (
+            <button
+              onClick={handleDelete}
+              title="Delete"
+              style={{
+                width: "32px",
+                height: "32px",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                border: "none",
+                background: "transparent",
+                color: "#FF3B30",
+                cursor: "pointer",
+                flexShrink: 0
+              }}
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -222,10 +226,52 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           style={{ marginTop: "15px", paddingTop: "15px", borderTop: "1px solid rgba(0,0,0,0.05)" }}
         >
           <p style={{ fontSize: "14px", color: "#424245", marginBottom: "15px" }}>{scrap.fullSummary}</p>
-          <button className="btn btn-secondary" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} onClick={handleOpen}>
-            <ExternalLink size={16} />
-            View Original
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button className="btn btn-secondary" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }} onClick={handleOpen}>
+              <ExternalLink size={16} />
+              View Original
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}
+              title="Re-analyze"
+              style={{
+                width: "40px",
+                height: "40px",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "10px",
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "transparent",
+                color: "var(--accent-color)",
+                cursor: "pointer",
+                flexShrink: 0
+              }}
+            >
+              <RefreshCw size={16} />
+            </button>
+            <button
+              onClick={handleDelete}
+              title="Delete"
+              style={{
+                width: "40px",
+                height: "40px",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "10px",
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "transparent",
+                color: "#FF3B30",
+                cursor: "pointer",
+                flexShrink: 0
+              }}
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
         </motion.div>
       )}
     </motion.div>
