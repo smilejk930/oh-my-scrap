@@ -7,8 +7,24 @@ import { analyzeContent } from "../services/gemini";
 import { X, Clipboard, Send, Loader2, CheckCircle } from "lucide-react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 
+// AI/비-AI 경로와 무관하게 호스트네임만으로 태그를 강제하고 싶은 사이트.
+// 도메인에서 추출한 도메인 파트("Hada")가 사이트의 통용 명칭("GeekNews")과 다른 경우에 사용.
+const FORCED_SITE_TAGS = {
+  "news.hada.io": "GeekNews",
+};
+
+const getForcedSiteTag = (url) => {
+  try {
+    return FORCED_SITE_TAGS[new URL(url).hostname.replace(/^www\./, "")] || null;
+  } catch {
+    return null;
+  }
+};
+
 const generateBasicTags = (url, isYoutubeVideo) => {
   if (isYoutubeVideo) return ["YouTube", "Video"];
+  const forced = getForcedSiteTag(url);
+  if (forced) return [forced];
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "");
     const knownDomains = {
@@ -100,6 +116,12 @@ const AddScrapDialog = ({ onClose }) => {
       } else {
         setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
         analysis = await analyzeContent(content, preferredLanguage, isYoutubeVideo ? url : null);
+      }
+
+      // 특정 사이트(예: GeekNews)는 AI가 다른 태그를 뽑더라도 사이트 태그를 강제로 앞에 붙인다.
+      const forcedTag = getForcedSiteTag(url);
+      if (forcedTag && !analysis.tags.some(t => t?.toLowerCase() === forcedTag.toLowerCase())) {
+        analysis.tags = [forcedTag, ...analysis.tags].slice(0, 3);
       }
 
       const newScrap = {
