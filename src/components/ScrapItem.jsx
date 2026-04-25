@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import { ExternalLink, ChevronDown, ChevronUp, Clock, Tag, Trash2 } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronUp, Clock, Tag, Trash2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { scrapeUrl } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { db } from "../firebase/firebase";
 import { doc, updateDoc, deleteDoc } from "firebase/firestore";
+import ReAnalyzeDialog from "./ReAnalyzeDialog";
 
 const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isReAnalyzeOpen, setIsReAnalyzeOpen] = useState(false);
 
   const createdAt = scrap.createdAt?.toDate();
   const dateStr = createdAt ? format(createdAt, "yy.MM.dd") : "Just now";
@@ -59,56 +61,66 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
 
   if (mode === "card") {
     return (
-      <motion.div 
-        layout
-        transition={{ layout: { duration: 0.15, ease: "easeOut" } }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={`card ${isSelected ? "selected" : ""}`} 
-        style={{ 
-          padding: "0", 
-          overflow: "hidden", 
-          display: "flex", 
-          flexDirection: "column",
-          cursor: "pointer",
-          border: isSelected ? "2px solid #0071E3" : "1px solid rgba(0,0,0,0.05)"
-        }}
-        onClick={() => isDesktop ? onSelect() : handleOpen()}
-      >
-        <div style={{ height: "160px", background: "#f0f0f0", position: "relative" }}>
-          <img 
-            src={scrap.thumbnail || "/placeholder.svg"} 
-            alt="thumb" 
-            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-            onError={(e) => e.target.src = "/placeholder.svg"}
-          />
-          <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "6px" }}>
-            <button className="btn" style={{ width: "34px", height: "34px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "#FF3B30", border: "none" }} onClick={handleDelete}>
-              <Trash2 size={18} />
-            </button>
-          </div>
-        </div>
-        <div style={{ padding: "15px" }}>
-          <h3 className="scrap-title" style={{ fontSize: "17px", whiteSpace: "normal", marginBottom: "8px" }}>
-            {scrap.title || "Unanalyzed Scrap"}
-          </h3>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", overflow: "hidden", flex: 1 }}>
-              <span style={{ fontSize: "12px", color: "#86868B", whiteSpace: "nowrap" }}>{dateStr}</span>
-              <div style={{ display: "flex", gap: "5px", overflow: "hidden", flex: 1 }}>
-                {scrap.tags?.filter(tag => tag && tag.trim()).slice(0, 3).map((tag, index) => (
-                  <span key={`${tag}-${index}`} style={{ fontSize: "11px", background: "rgba(0,0,0,0.05)", padding: "2px 8px", borderRadius: "8px", color: "#86868B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "80px" }}>#{tag}</span>
-                ))}
-              </div>
-            </div>
-            {!scrap.title && (
-              <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "4px 10px", marginLeft: "10px", whiteSpace: "nowrap" }} onClick={handleDelayedAnalysis} disabled={isAnalyzing}>
-                {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
+      <>
+        <motion.div
+          layout
+          transition={{ layout: { duration: 0.15, ease: "easeOut" } }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`card ${isSelected ? "selected" : ""}`}
+          style={{
+            padding: "0",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            cursor: "pointer",
+            border: isSelected ? "2px solid #0071E3" : "1px solid rgba(0,0,0,0.05)"
+          }}
+          onClick={() => isDesktop ? onSelect() : handleOpen()}
+        >
+          <div style={{ height: "160px", background: "#f0f0f0", position: "relative" }}>
+            <img
+              src={scrap.thumbnail || "/placeholder.svg"}
+              alt="thumb"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              onError={(e) => e.target.src = "/placeholder.svg"}
+            />
+            <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "6px" }}>
+              <button className="btn" style={{ width: "34px", height: "34px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "var(--accent-color)", border: "none" }} onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}>
+                <RefreshCw size={16} />
               </button>
-            )}
+              <button className="btn" style={{ width: "34px", height: "34px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", color: "#FF3B30", border: "none" }} onClick={handleDelete}>
+                <Trash2 size={18} />
+              </button>
+            </div>
           </div>
-        </div>
-      </motion.div>
+          <div style={{ padding: "15px" }}>
+            <h3 className="scrap-title" style={{ fontSize: "17px", whiteSpace: "normal", marginBottom: "8px" }}>
+              {scrap.title || "Unanalyzed Scrap"}
+            </h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", overflow: "hidden", flex: 1 }}>
+                <span style={{ fontSize: "12px", color: "#86868B", whiteSpace: "nowrap" }}>{dateStr}</span>
+                <div style={{ display: "flex", gap: "5px", overflow: "hidden", flex: 1 }}>
+                  {scrap.tags?.filter(tag => tag && tag.trim()).slice(0, 3).map((tag, index) => (
+                    <span key={`${tag}-${index}`} style={{ fontSize: "11px", background: "rgba(0,0,0,0.05)", padding: "2px 8px", borderRadius: "8px", color: "#86868B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "80px" }}>#{tag}</span>
+                  ))}
+                </div>
+              </div>
+              {!scrap.title && (
+                <button className="btn btn-secondary" style={{ fontSize: "11px", padding: "4px 10px", marginLeft: "10px", whiteSpace: "nowrap" }} onClick={handleDelayedAnalysis} disabled={isAnalyzing}>
+                  {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
+                </button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+        <AnimatePresence>
+          {isReAnalyzeOpen && (
+            <ReAnalyzeDialog scrap={scrap} onClose={() => setIsReAnalyzeOpen(false)} />
+          )}
+        </AnimatePresence>
+      </>
     );
   }
 
@@ -159,6 +171,9 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
               </button>
             )
           )}
+          <button className="btn btn-secondary" style={{ padding: "6px", color: "var(--accent-color)", border: "none", background: "none" }} onClick={(e) => { e.stopPropagation(); setIsReAnalyzeOpen(true); }}>
+            <RefreshCw size={16} />
+          </button>
           <button className="btn btn-secondary" style={{ padding: "6px", color: "#FF3B30", border: "none", background: "none" }} onClick={handleDelete}>
             <Trash2 size={18} />
           </button>
@@ -166,7 +181,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
       </div>
 
       {!isDesktop && isExpanded && scrap.fullSummary && (
-        <motion.div 
+        <motion.div
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
           style={{ marginTop: "15px", paddingTop: "15px", borderTop: "1px solid rgba(0,0,0,0.05)" }}
@@ -178,6 +193,11 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
           </button>
         </motion.div>
       )}
+      <AnimatePresence>
+        {isReAnalyzeOpen && (
+          <ReAnalyzeDialog scrap={scrap} onClose={() => setIsReAnalyzeOpen(false)} />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
