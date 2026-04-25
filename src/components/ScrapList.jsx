@@ -115,18 +115,22 @@ const ScrapList = ({ viewMode, setViewMode }) => {
               </button>
             ))}
           </div>
-          <div className="desktop-only" style={{ display: "flex", gap: "5px", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
-            <button 
+          <div className="desktop-only language-toggle">
+            <button
+              className={`lang-btn ${viewMode === "list" ? "active" : ""}`}
               onClick={() => setViewMode("list")}
-              style={{ background: viewMode === "list" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+              title="List view"
+              style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
             >
-              <ListIcon size={18} color={viewMode === "list" ? "#0071E3" : "#86868B"} />
+              <ListIcon size={14} />
             </button>
-            <button 
+            <button
+              className={`lang-btn ${viewMode === "card" ? "active" : ""}`}
               onClick={() => setViewMode("card")}
-              style={{ background: viewMode === "card" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
+              title="Card view"
+              style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
             >
-              <LayoutGrid size={18} color={viewMode === "card" ? "#0071E3" : "#86868B"} />
+              <LayoutGrid size={14} />
             </button>
           </div>
         </div>
