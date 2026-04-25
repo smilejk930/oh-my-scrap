@@ -1,6 +1,16 @@
 const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 Gemini 1M 토큰 한도 초과 유발 → AI 분석 생략
 
+// CORS 프록시가 Cloudflare 등 봇 차단 인터스티셜에 걸렸을 때 HTTP 200으로 챌린지 HTML이 돌아온다.
+// 이 페이지는 og:title이 없고 <title>이 "Just a moment..."라서 그대로 진행하면 Gemini가 그걸 본문으로 요약해버린다.
+const isAntiBotInterstitial = (html) => {
+  if (!html) return false;
+  return /<title>\s*Just a moment\.\.\.?/i.test(html) ||
+         /__cf_chl_(?:tk|f_tk|opt)/.test(html) ||
+         /challenges\.cloudflare\.com/i.test(html) ||
+         /cf-browser-verification/i.test(html);
+};
+
 // ISO 8601 duration (e.g. "PT1H2M3S") → seconds
 const parseIsoDuration = (iso) => {
   const m = iso?.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
@@ -86,7 +96,10 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       try {
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        html = await response.text();
+        const text = await response.text();
+        // Cloudflare 등 봇 차단 인터스티셜은 HTTP 200으로 오기 때문에 본문을 검사해 폴백시킨다.
+        if (isAntiBotInterstitial(text)) throw new Error("Anti-bot interstitial");
+        html = text;
         break; // 성공 시 루프 중단
       } catch (e) {
         lastError = e;
@@ -100,6 +113,9 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       const response = await fetch(allOriginsUrl);
       const data = await response.json();
       if (!data.contents) throw lastError || new Error("All proxies failed");
+      if (isAntiBotInterstitial(data.contents)) {
+        throw lastError || new Error("All proxies returned an anti-bot interstitial");
+      }
       html = data.contents;
     }
 
