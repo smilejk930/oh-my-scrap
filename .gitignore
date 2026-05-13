@@ -31,4 +31,6 @@ dist-ssr
 
 # Playwright
 .playwright/
-.claude/worktrees/.claude/settings.local.json
+
+# Private settings
+settings.local.json
