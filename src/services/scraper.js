@@ -1,6 +1,43 @@
 const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 Gemini 1M 토큰 한도 초과 유발 → AI 분석 생략
 
+// Notion publish 페이지(*.notion.site)는 본문이 JS로만 렌더링되어 프록시 HTML에는
+// "Notion | Where teams..." 같은 마케팅 셸 메타만 남는다. URL slug의 마지막 32자 hex가
+// page id이고 그 앞이 dash로 연결된 페이지 제목이라 이를 복원해 사용한다.
+const NOTION_PAGE_ID_REGEX = /-?[0-9a-f]{32}$/i;
+const NOTION_SHELL_TITLE_REGEX = /^Notion\s*\|/i;
+
+const extractNotionPageTitle = (url) => {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.endsWith(".notion.site")) return null;
+    const segment = u.pathname.split("/").filter(Boolean).pop() || "";
+    const withoutId = segment.replace(NOTION_PAGE_ID_REGEX, "");
+    if (!withoutId) return null;
+    return decodeURIComponent(withoutId).replace(/-/g, " ").trim() || null;
+  } catch {
+    return null;
+  }
+};
+
+// 일부 사이트는 SPA 셸을 내려보내 og:title 외엔 본문이 비어 있다.
+// 프록시 fetch 단계에서만 도메인을 SSR 친화 호스트로 바꿔치기하고 저장되는 URL은 그대로 유지한다.
+const rewriteHostForFetch = (url) => {
+  try {
+    const u = new URL(url);
+    // *.reddit.com → old.reddit.com (게시글/댓글 본문을 정적 HTML로 내려준다)
+    if (u.hostname === "reddit.com" || u.hostname.endsWith(".reddit.com")) {
+      if (u.hostname !== "old.reddit.com") {
+        u.hostname = "old.reddit.com";
+        return u.toString();
+      }
+    }
+  } catch {
+    // URL 파싱 실패 시 원본 그대로 사용
+  }
+  return url;
+};
+
 // CORS 프록시가 Cloudflare 등 봇 차단 인터스티셜에 걸렸을 때 HTTP 200으로 챌린지 HTML이 돌아온다.
 // 이 페이지는 og:title이 없고 <title>이 "Just a moment..."라서 그대로 진행하면 Gemini가 그걸 본문으로 요약해버린다.
 const isAntiBotInterstitial = (html) => {
@@ -9,6 +46,37 @@ const isAntiBotInterstitial = (html) => {
          /__cf_chl_(?:tk|f_tk|opt)/.test(html) ||
          /challenges\.cloudflare\.com/i.test(html) ||
          /cf-browser-verification/i.test(html);
+};
+
+// 여러 CORS 프록시를 순차 시도해 HTML 본문을 가져온다.
+// allorigins는 JSON 래퍼를 쓰므로 마지막 폴백으로 분리.
+const fetchHtmlViaProxies = async (target) => {
+  const proxies = [
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+    `https://corsproxy.io/?${encodeURIComponent(target)}`
+  ];
+
+  let lastError = null;
+  for (const proxyUrl of proxies) {
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      if (isAntiBotInterstitial(text)) throw new Error("Anti-bot interstitial");
+      return text;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  const allOriginsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+  const response = await fetch(allOriginsUrl);
+  const data = await response.json();
+  if (!data.contents) throw lastError || new Error("All proxies failed");
+  if (isAntiBotInterstitial(data.contents)) {
+    throw lastError || new Error("All proxies returned an anti-bot interstitial");
+  }
+  return data.contents;
 };
 
 // ISO 8601 duration (e.g. "PT1H2M3S") → seconds
@@ -84,39 +152,18 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       };
     }
 
-    const proxies = [
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-      `https://corsproxy.io/?${encodeURIComponent(url)}`
-    ];
-
-    let html = null;
-    let lastError = null;
-
-    for (const proxyUrl of proxies) {
-      try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const text = await response.text();
-        // Cloudflare 등 봇 차단 인터스티셜은 HTTP 200으로 오기 때문에 본문을 검사해 폴백시킨다.
-        if (isAntiBotInterstitial(text)) throw new Error("Anti-bot interstitial");
-        html = text;
-        break; // 성공 시 루프 중단
-      } catch (e) {
-        lastError = e;
-        continue; // 실패 시 다음 프록시 시도
+    const fetchUrl = rewriteHostForFetch(url);
+    let html;
+    try {
+      html = await fetchHtmlViaProxies(fetchUrl);
+    } catch (e) {
+      // rewrite한 호스트(old.reddit.com 등)가 프록시 측에서 막혔을 때는 원본 URL로 한 번 더 시도.
+      if (fetchUrl !== url) {
+        console.warn(`[scrapeUrl] rewrite fetch failed (${fetchUrl}); retrying original:`, e.message);
+        html = await fetchHtmlViaProxies(url);
+      } else {
+        throw e;
       }
-    }
-
-    // 만약 앞의 프록시들이 모두 실패했다면 마지막으로 allorigins.win 시도 (JSON 응답)
-    if (!html) {
-      const allOriginsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-      const response = await fetch(allOriginsUrl);
-      const data = await response.json();
-      if (!data.contents) throw lastError || new Error("All proxies failed");
-      if (isAntiBotInterstitial(data.contents)) {
-        throw lastError || new Error("All proxies returned an anti-bot interstitial");
-      }
-      html = data.contents;
     }
 
     const parser = new DOMParser();
@@ -126,8 +173,16 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       doc.querySelector(`meta[property="${property}"]`)?.getAttribute("content") ||
       doc.querySelector(`meta[name="${property}"]`)?.getAttribute("content");
 
-    const title = getMeta("og:title") || doc.title || "Untitled";
-    const description = getMeta("og:description") || getMeta("description") || "";
+    let title = getMeta("og:title") || doc.title || "Untitled";
+    let description = getMeta("og:description") || getMeta("description") || "";
+
+    // Notion publish 페이지는 본문/메타가 SSR되지 않아 "Notion | Where teams..." 마케팅 셸이 잡힌다.
+    // URL slug에서 페이지 제목을 복원하고, 마케팅 description은 제거해 AI가 셸에 휘둘리지 않게 한다.
+    const notionPageTitle = extractNotionPageTitle(url);
+    if (notionPageTitle && NOTION_SHELL_TITLE_REGEX.test(title)) {
+      title = notionPageTitle;
+      description = "";
+    }
 
     const ogImage = getMeta("og:image");
     let thumbnail = ogImage;
@@ -155,10 +210,18 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       .replace(/\s+/g, " ")
       .trim();
 
+    // Notion 같은 SPA는 본문이 JS로 렌더되어 og:title/description만 남는다.
+    // 메타 정보를 항상 앞에 붙여서 빈약한 본문에도 AI가 최소 신호를 얻도록 한다.
+    const content = [title, description, bodyText]
+      .map(s => (s || "").trim())
+      .filter(Boolean)
+      .filter((s, i, arr) => arr.indexOf(s) === i)
+      .join("\n\n") || title;
+
     return {
       title,
       thumbnail,
-      content: bodyText || title,
+      content,
       description,
       skipAi: false,
       skipReason: "",

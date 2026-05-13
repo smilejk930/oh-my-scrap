@@ -113,6 +113,11 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
         analysis.tags = [forcedTag, ...analysis.tags].slice(0, 3);
       }
 
+      // YouTube 영상은 AI 경로 결과에도 "YouTube" 태그를 항상 보장한다.
+      if (isYoutubeVideo && !analysis.tags.some((t) => t?.toLowerCase() === "youtube")) {
+        analysis.tags = ["YouTube", ...analysis.tags].slice(0, 3);
+      }
+
       // Build the update payload
       const updatePayload = {
         title: analysis.title,
