@@ -80,11 +80,10 @@ export const analyzeContent = async (content, language = "en", videoUrl = null) 
       })()
     : null;
 
-  // 비디오 입력이 필요할 땐 비디오 미지원 가능성이 있는 flash-lite/preview 모델은 제외하여 불필요한 재시도를 줄임
-  // gemini-2.0-flash는 신규 사용자에게 404를 반환하므로 제외
+  // 신규 API 키에서 gemini-2.5-* 모델은 404(신규 사용자 지원 중단)를 반환하므로 gemini-3.x / latest 모델을 우선 사용
   const modelsToTry = normalizedVideoUrl
-    ? ["gemini-2.5-flash", "gemini-2.5-pro"]
-    : ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3-flash-preview", "gemini-3.1-pro-preview"];
+    ? ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-flash-latest"]
+    : ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-3.1-pro-preview", "gemini-flash-latest"];
   const maxRetriesPerModel = 3;
 
   let lastError = new Error("Initialization");
