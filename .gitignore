@@ -34,3 +34,7 @@ dist-ssr
 
 # Private settings
 settings.local.json
+
+# Documentation
+docs/
+
