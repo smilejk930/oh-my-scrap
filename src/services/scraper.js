@@ -111,7 +111,7 @@ const fetchYoutubeDurationSeconds = async (videoId) => {
 /**
  * URL에서 메타데이터(제목, 썸네일) 및 본문 텍스트를 추출합니다.
  * @param {string} url - 스크랩할 대상 URL
- * @returns {Promise<{title: string, thumbnail: string, content: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean}>}
+ * @returns {Promise<{title: string, thumbnail: string, content: string, description: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean}>}
  */
 export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
   try {
