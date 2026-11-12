@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import { ExternalLink, ChevronDown, ChevronUp, Clock, Tag, Trash2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { scrapeUrl } from "../services/scraper";
+import { scrapeUrl, getForcedSiteTag, generateBasicTags } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
+import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase/firebase";
 import { doc, updateDoc, deleteDoc } from "firebase/firestore";
 import ReAnalyzeDialog from "./ReAnalyzeDialog";
 
 const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) => {
+  const { preferredLanguage } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isReAnalyzeOpen, setIsReAnalyzeOpen] = useState(false);
@@ -36,9 +38,28 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
 
     setIsAnalyzing(true);
     try {
-      const { title, thumbnail, content } = await scrapeUrl(scrap.url);
-      const analysis = await analyzeContent(content);
-      
+      const { title, thumbnail, content, skipAi, skipReason, isYoutubeVideo } = await scrapeUrl(scrap.url, { checkDuration: true });
+
+      let analysis;
+      if (skipAi) {
+        analysis = {
+          title,
+          tags: generateBasicTags(scrap.url, isYoutubeVideo),
+          fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : "")
+        };
+      } else {
+        analysis = await analyzeContent(content, preferredLanguage, isYoutubeVideo ? scrap.url : null);
+      }
+
+      const forcedTag = getForcedSiteTag(scrap.url);
+      if (forcedTag && !analysis.tags.some((t) => t?.toLowerCase() === forcedTag.toLowerCase())) {
+        analysis.tags = [forcedTag, ...analysis.tags].slice(0, 3);
+      }
+
+      if (isYoutubeVideo && !analysis.tags.some((t) => t?.toLowerCase() === "youtube")) {
+        analysis.tags = ["YouTube", ...analysis.tags].slice(0, 3);
+      }
+
       const scrapRef = doc(db, "scraps", scrap.id);
       await updateDoc(scrapRef, {
         title: analysis.title,

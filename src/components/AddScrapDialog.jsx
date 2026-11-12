@@ -2,50 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { scrapeUrl } from "../services/scraper";
+import { scrapeUrl, getForcedSiteTag, generateBasicTags } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { X, Clipboard, Send, Loader2, CheckCircle } from "lucide-react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-
-// AI/비-AI 경로와 무관하게 호스트네임만으로 태그를 강제하고 싶은 사이트.
-// 도메인에서 추출한 도메인 파트("Hada")가 사이트의 통용 명칭("GeekNews")과 다른 경우에 사용.
-const FORCED_SITE_TAGS = {
-  "news.hada.io": "GeekNews",
-};
-
-const getForcedSiteTag = (url) => {
-  try {
-    return FORCED_SITE_TAGS[new URL(url).hostname.replace(/^www\./, "")] || null;
-  } catch {
-    return null;
-  }
-};
-
-const generateBasicTags = (url, isYoutubeVideo) => {
-  if (isYoutubeVideo) return ["YouTube", "Video"];
-  const forced = getForcedSiteTag(url);
-  if (forced) return [forced];
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "");
-    const knownDomains = {
-      "github.com": "GitHub", "medium.com": "Medium",
-      "twitter.com": "Twitter", "x.com": "X",
-      "reddit.com": "Reddit", "instagram.com": "Instagram",
-      "linkedin.com": "LinkedIn", "notion.so": "Notion",
-      "velog.io": "Velog", "tistory.com": "Tistory",
-      "naver.com": "Naver",
-    };
-    const known = knownDomains[hostname];
-    if (known) return [known];
-    const parts = hostname.split(".");
-    const meaningless = new Set(["blog", "www", "app", "m", "news", "shop"]);
-    const fallbackIdx = parts.length >= 2 ? parts.length - 2 : 0;
-    const domainPart = meaningless.has(parts[0]) ? (parts[1] ?? parts[0]) : parts[fallbackIdx];
-    return [domainPart.charAt(0).toUpperCase() + domainPart.slice(1)];
-  } catch {
-    return ["Web"];
-  }
-};
 
 const AddScrapDialog = ({ onClose }) => {
   const { user, preferredLanguage, useAi, updateLanguage, updateUseAi } = useAuth();
@@ -106,11 +66,11 @@ const AddScrapDialog = ({ onClose }) => {
           fullSummary: description || ""
         };
       } else if (skipAi) {
-        setStatus("Long video detected. Skipping AI...");
+        setStatus(isYoutubeVideo ? "Long video detected. Skipping AI..." : "Content restricted. Saving basic link info...");
         analysis = {
           title,
-          tags: ["YouTube", "Video"],
-          fullSummary: skipReason || "Skipped AI analysis."
+          tags: generateBasicTags(url, isYoutubeVideo),
+          fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : "")
         };
         await new Promise(resolve => setTimeout(resolve, 800));
       } else {

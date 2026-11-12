@@ -3,54 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, X } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
-import { scrapeUrl } from "../services/scraper";
+import { scrapeUrl, getForcedSiteTag, generateBasicTags } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { useAuth } from "../context/AuthContext";
-
-// Forced site tags: domains whose common name differs from the hostname-derived tag
-const FORCED_SITE_TAGS = {
-  "news.hada.io": "GeekNews",
-};
-
-const getForcedSiteTag = (url) => {
-  try {
-    return FORCED_SITE_TAGS[new URL(url).hostname.replace(/^www\./, "")] || null;
-  } catch {
-    return null;
-  }
-};
-
-const generateBasicTags = (url, isYoutubeVideo) => {
-  if (isYoutubeVideo) return ["YouTube", "Video"];
-  const forced = getForcedSiteTag(url);
-  if (forced) return [forced];
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "");
-    const knownDomains = {
-      "github.com": "GitHub", "medium.com": "Medium",
-      "twitter.com": "Twitter", "x.com": "X",
-      "reddit.com": "Reddit", "instagram.com": "Instagram",
-      "linkedin.com": "LinkedIn", "notion.so": "Notion",
-      "velog.io": "Velog", "tistory.com": "Tistory",
-      "naver.com": "Naver",
-    };
-    const known = knownDomains[hostname];
-    if (known) return [known];
-    const parts = hostname.split(".");
-    const meaningless = new Set(["blog", "www", "app", "m", "news", "shop"]);
-    const fallbackIdx = parts.length >= 2 ? parts.length - 2 : 0;
-    const domainPart = meaningless.has(parts[0]) ? (parts[1] ?? parts[0]) : parts[fallbackIdx];
-    return [domainPart.charAt(0).toUpperCase() + domainPart.slice(1)];
-  } catch {
-    return ["Web"];
-  }
-};
-
-// Normalize YouTube URL to the canonical form the Gemini API recognizes
-const normalizeYoutubeUrl = (url) => {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://www.youtube.com/watch?v=${m[1]}` : url;
-};
 
 const ReAnalyzeDialog = ({ scrap, onClose }) => {
   const { preferredLanguage, useAi } = useAuth();
@@ -94,17 +49,16 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
           fullSummary: description || "",
         };
       } else if (skipAi) {
-        setStatus("Long video detected. Skipping AI...");
+        setStatus(isYoutubeVideo ? "Long video detected. Skipping AI..." : "Content restricted. Saving basic link info...");
         analysis = {
           title,
-          tags: ["YouTube", "Video"],
-          fullSummary: skipReason || "Skipped AI analysis.",
+          tags: generateBasicTags(scrap.url, isYoutubeVideo),
+          fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : ""),
         };
         await new Promise((resolve) => setTimeout(resolve, 800));
       } else {
         setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
-        const canonicalUrl = isYoutubeVideo ? normalizeYoutubeUrl(scrap.url) : null;
-        analysis = await analyzeContent(content, localLang, canonicalUrl);
+        analysis = await analyzeContent(content, localLang, isYoutubeVideo ? scrap.url : null);
       }
 
       // Apply forced site tag (e.g. GeekNews for news.hada.io)
