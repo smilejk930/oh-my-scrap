@@ -124,25 +124,7 @@ const parseGithubRepoUrl = (url) => {
   }
 };
 
-// 일부 사이트는 SPA 셸을 내려보내 og:title 외엔 본문이 비어 있다.
-// 프록시 fetch 단계에서만 도메인을 SSR 친화 호스트로 바꿔치기하고 저장되는 URL은 그대로 유지한다.
-const rewriteHostForFetch = (url) => {
-  try {
-    const u = new URL(url);
-    // *.reddit.com → old.reddit.com (게시글/댓글 본문을 정적 HTML로 내려준다)
-    if (u.hostname === "reddit.com" || u.hostname.endsWith(".reddit.com")) {
-      if (u.hostname !== "old.reddit.com") {
-        u.hostname = "old.reddit.com";
-        return u.toString();
-      }
-    }
-  } catch {
-    // URL 파싱 실패 시 원본 그대로 사용
-  }
-  return url;
-};
-
-// CORS 프록시나 리더 API가 Cloudflare 등 봇 차단 인터스티셜에 걸렸을 때 차단 HTML/경고문이 돌아온다.
+// 프록시 응답이 Cloudflare 등 봇 차단 인터스티셜에 걸렸을 때 차단 HTML이 돌아오는지 판별한다.
 const isAntiBotInterstitial = (text) => {
   if (!text) return false;
   return /<title>\s*Just a moment\.\.\.?/i.test(text) ||
@@ -150,11 +132,10 @@ const isAntiBotInterstitial = (text) => {
          /<title>\s*Access Denied/i.test(text) ||
          /__cf_chl_(?:tk|f_tk|opt)/.test(text) ||
          /challenges\.cloudflare\.com/i.test(text) ||
-         /cf-browser-verification/i.test(text) ||
-         /Warning:\s*Target URL returned error (?:401|403|429|5\d\d)/i.test(text);
+         /cf-browser-verification/i.test(text);
 };
 
-// 4단계: 모든 본문 추출이 차단/실패했을 때 URL 자체에서 최소 정보를 복원해 저장을 보장한다.
+// 3단계: 모든 본문 추출이 차단/실패했을 때 URL 자체에서 최소 정보를 복원해 저장을 보장한다.
 const buildFallbackScrap = (url) => {
   const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
   const ytMatch = url.match(YT_ID_REGEX);
@@ -248,129 +229,19 @@ const scrapeGithubUrl = async (url, { owner, repo }) => {
   };
 };
 
-// 2단계: CORS 허용 리더(Jina Reader)와 메타데이터 추출(Microlink) API를 병렬 호출해 결합한다.
-const fetchMicrolink = async (url) => {
-  const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}`;
-  const res = await fetchWithTimeout(apiUrl);
-  if (!res.ok) throw new Error(`Microlink HTTP ${res.status}`);
-  const json = await res.json();
-  if (json?.status !== "success" || !json?.data) {
-    throw new Error("Microlink invalid payload");
-  }
-  const { title, description, image, logo } = json.data;
-  if (isAntiBotInterstitial(title) || isAntiBotInterstitial(description)) {
-    throw new Error("Microlink anti-bot content");
-  }
-  return {
-    title: title || "",
-    description: description || "",
-    thumbnail: image?.url || logo?.url || ""
-  };
-};
+// 2단계: 자체 Cloudflare Workers 스크래핑 프록시 서버를 통해 HTML 본문을 가져온다.
+const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev";
 
-const fetchJinaReader = async (url) => {
-  const jinaUrl = `https://r.jina.ai/${url}`;
-  const res = await fetchWithTimeout(jinaUrl, {
-    headers: { Accept: "application/json" }
-  });
-  if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
-  const json = await res.json();
-  const d = json?.data || json;
-  const title = d?.title || "";
-  const description = d?.description || "";
-  const content = d?.content || "";
-  if (isAntiBotInterstitial(title) || isAntiBotInterstitial(content)) {
-    throw new Error("Jina anti-bot interstitial");
-  }
-  return { title, description, content };
-};
-
-const fetchViaExtractorApis = async (url) => {
-  const [mlResult, jinaResult] = await Promise.allSettled([
-    fetchMicrolink(url),
-    fetchJinaReader(url)
-  ]);
-
-  const microlink = mlResult.status === "fulfilled" ? mlResult.value : null;
-  const jina = jinaResult.status === "fulfilled" ? jinaResult.value : null;
-
-  if (!microlink && !jina) return null;
-
-  const rawTitle = (microlink?.title || jina?.title || "").trim();
-  const notionTitle = extractNotionPageTitle(url);
-  const isNotionShell = NOTION_SHELL_TITLE_REGEX.test(rawTitle);
-
-  const title = (notionTitle && (!rawTitle || isNotionShell)) ? notionTitle : rawTitle;
-  const description = (notionTitle && isNotionShell)
-    ? ""
-    : (microlink?.description || jina?.description || "").trim();
-  const bodyText = (jina?.content || "").replace(/\s+/g, " ").trim().substring(0, 5000);
-  const thumbnail = microlink?.thumbnail || getGoogleFaviconUrl(url);
-
-  const isValid = Boolean(
-    title &&
-    title !== "Untitled" &&
-    !NOTION_SHELL_TITLE_REGEX.test(title) &&
-    (description.length > 0 || bodyText.length > 0)
-  );
-
-  if (!isValid) return null;
-
-  const content = [title, description, bodyText]
-    .map((s) => (s || "").trim())
-    .filter(Boolean)
-    .filter((s, i, arr) => arr.indexOf(s) === i)
-    .join("\n\n") || title;
-
-  return {
-    title,
-    thumbnail,
-    content,
-    description,
-    skipAi: false,
-    skipReason: "",
-    isYoutubeVideo: false
-  };
-};
-
-// 3단계: 정비된 CORS 프록시(CodeTabs, AllOrigins)를 5초 타임아웃의 Promise.any로 병렬 경쟁 호출한다.
-const fetchViaCodeTabs = async (target) => {
-  const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`;
+const fetchHtmlViaCustomProxy = async (target) => {
+  const baseUrl = (import.meta.env.VITE_SCRAPE_PROXY_URL || DEFAULT_CUSTOM_PROXY_URL).trim().replace(/\/+$/, "");
+  const proxyUrl = `${baseUrl}/?url=${encodeURIComponent(target)}`;
   const response = await fetchWithTimeout(proxyUrl);
-  if (!response.ok) throw new Error(`CodeTabs HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`CustomProxy HTTP ${response.status}`);
   const text = await response.text();
   if (!text || !text.trim() || isAntiBotInterstitial(text)) {
-    throw new Error("CodeTabs empty or anti-bot interstitial");
+    throw new Error("CustomProxy empty or anti-bot interstitial");
   }
   return text;
-};
-
-const fetchViaAllOrigins = async (target) => {
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
-  const response = await fetchWithTimeout(proxyUrl);
-  if (!response.ok) throw new Error(`AllOrigins HTTP ${response.status}`);
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("AllOrigins invalid JSON");
-  }
-  const html = data?.contents;
-  if (!html || !html.trim() || isAntiBotInterstitial(html)) {
-    throw new Error("AllOrigins empty or anti-bot interstitial");
-  }
-  return html;
-};
-
-const fetchHtmlViaProxies = async (url) => {
-  const rewritten = rewriteHostForFetch(url);
-  const targets = rewritten !== url ? [rewritten, url] : [url];
-  const tasks = [];
-  for (const target of targets) {
-    tasks.push(fetchViaCodeTabs(target));
-    tasks.push(fetchViaAllOrigins(target));
-  }
-  return Promise.any(tasks);
 };
 
 // ISO 8601 duration (e.g. "PT1H2M3S") → seconds
@@ -468,16 +339,8 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       return await scrapeGithubUrl(url, githubRepo);
     }
 
-    // 2단계: CORS 허용 리더/메타데이터 추출 API 병렬 호출 (Jina Reader + Microlink)
-    try {
-      const extracted = await fetchViaExtractorApis(url);
-      if (extracted) return extracted;
-    } catch (extErr) {
-      console.warn("[scrapeUrl] Stage 2 extractor APIs failed:", extErr.message);
-    }
-
-    // 3단계: 정비된 CORS 프록시 병렬 경쟁 호출 + DOMParser 파싱
-    const html = await fetchHtmlViaProxies(url);
+    // 2단계: 자체 Cloudflare Workers 프록시 호출 + DOMParser 파싱
+    const html = await fetchHtmlViaCustomProxy(url);
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 

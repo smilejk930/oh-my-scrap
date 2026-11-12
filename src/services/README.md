@@ -1,7 +1,7 @@
 # Services (`src/services`)
 
 ## Overview
-다단계 클라이언트 URL 추출 파이프라인(도메인 전용 공개 API → CORS 허용 리더/메타데이터 API 병렬 호출 → CORS 프록시 경쟁 호출 → 최소 정보 그레이스풀 폴백) 및 공통 도메인 태그 유틸리티를 제공하는 `scraper.js`와, 다중 모델 폴백 기반의 Google Gemini 웹페이지·영상 요약(`gemini.js`) 서비스를 제공합니다.
+다단계 클라이언트 URL 추출 파이프라인(도메인 전용 공식 API → 자체 Cloudflare Workers 프록시 서버 → 최소 정보 그레이스풀 폴백) 및 공통 도메인 태그 유틸리티를 제공하는 `scraper.js`와, 다중 모델 폴백 기반의 Google Gemini 웹페이지·영상 요약(`gemini.js`) 서비스를 제공합니다.
 
 ## Interface
 - `[gemini.js:analyzeContent]` — `async (content, language = "en", videoUrl = null) => Promise<{title: string, tags: string[], fullSummary: string}>`: 웹페이지 본문 텍스트 또는 YouTube 영상을 분석하여 제목, 태그 목록, 본문 요약을 반환합니다.
@@ -19,20 +19,17 @@
 - `[scraper.js:fetchWithTimeout]` — 모든 외부 HTTP `fetch` 요청에 `REQUEST_TIMEOUT_MS = 5000`ms(5초) 타임아웃을 강제합니다.
 - `[scraper.js:YOUTUBE_AI_MAX_SECONDS]` — `checkDuration`이 `true`이고 `VITE_YOUTUBE_API_KEY`가 설정된 상태에서 YouTube 영상 길이가 180초를 초과하면 `skipAi = true` 및 `skipReason`을 설정하여 반환하며, YouTube oEmbed 실패 시에는 예외를 던지지 않고 `buildFallbackScrap(url)`으로 폴백합니다.
 - `[scraper.js:parseGithubRepoUrl]` — `github.com/{owner}/{repo}` 저장소 루트 및 `/tree/{branch}` 경로(예약 경로 제외)에 한해 1단계 `scrapeGithubUrl`을 실행하여 `api.github.com/repos/{owner}/{repo}`와 `raw.githubusercontent.com/{owner}/{repo}/HEAD/README.md`를 병렬 조회하고 `https://opengraph.githubassets.com/1/${owner}/${repo}` 썸네일을 부여합니다. 두 요청 모두 실패 시 `buildFallbackScrap(url)`으로 단락합니다.
-- `[scraper.js:fetchViaExtractorApis]` — 2단계에서 Microlink(`api.microlink.io`)와 Jina Reader(`r.jina.ai`)를 `Promise.allSettled`로 병렬 호출하여 유효한 제목과 설명/본문이 확보되면 결합해 반환합니다.
 - `[scraper.js:extractNotionPageTitle]` — `*.notion.site` URL에서 추출된 제목이 `/^Notion\s*\|/i`(`NOTION_SHELL_TITLE_REGEX`)와 일치하면, URL 슬러그에서 후행 `NOTION_PAGE_ID_REGEX`(`/-?[0-9a-f]{32}$/i`)를 제거해 복원한 제목으로 `title`을 대체하고 `description`을 `""`로 비웁니다.
-- `[scraper.js:rewriteHostForFetch]` — 3단계 프록시 요청 시 `reddit.com` 및 `*.reddit.com` 호스트명을 정적 HTML 추출이 가능한 `old.reddit.com`으로 변환하여 원본 URL과 함께 `Promise.any`로 경쟁 호출합니다.
-- `[scraper.js:isAntiBotInterstitial]` — Cloudflare 인터스티셜(`<title>Just a moment...`, `<title>Attention Required!`, `<title>Access Denied`, `__cf_chl_`, `challenges.cloudflare.com`, `cf-browser-verification`) 및 Jina 타깃 에러 경고(`Warning: Target URL returned error 401|403|429|5xx`)가 포함된 응답을 거부합니다.
-- `[scraper.js:scrapeUrl]` — 유효하지 않은 URL 구문 또는 비-`http(s):` 프로토콜일 때만 예외를 던지며, 네트워크/추출 실패 시에는 4단계 `buildFallbackScrap(url)`(`skipAi: true`, URL 슬러그/호스트 제목, Google S2 파비콘/OpenGraph 썸네일)을 반환합니다.
+- `[scraper.js:isAntiBotInterstitial]` — Cloudflare 인터스티셜(`<title>Just a moment...`, `<title>Attention Required!`, `<title>Access Denied`, `__cf_chl_`, `challenges.cloudflare.com`, `cf-browser-verification`)이 포함된 응답을 거부합니다.
+- `[scraper.js:scrapeUrl]` — 유효하지 않은 URL 구문 또는 비-`http(s):` 프로토콜일 때만 예외를 던지며, 네트워크/추출 실패 시에는 3단계 `buildFallbackScrap(url)`(`skipAi: true`, URL 슬러그/호스트 제목, Google S2 파비콘/OpenGraph 썸네일)을 반환합니다.
 
 ## Side Effects
 - `[gemini.js:genAI]` — 모듈 로드 시점에 `import.meta.env.VITE_GEMINI_API_KEY`를 읽어 `GoogleGenerativeAI` 인스턴스를 생성합니다.
 - `[gemini.js:analyzeContent]` — `model.generateContent(requestParts)`를 통해 Google Generative AI API로 외부 네트워크 요청을 수행하고, 실패 시 `console.warn` 및 `console.error`로 로그를 출력합니다.
 - `[scraper.js:scrapeGithubUrl]` — `https://api.github.com/repos/{owner}/{repo}` 및 `https://raw.githubusercontent.com/{owner}/{repo}/HEAD/README.md`로 5초 타임아웃 HTTP `fetch` 요청을 수행합니다.
-- `[scraper.js:fetchViaExtractorApis]` — `https://api.microlink.io/` 및 `https://r.jina.ai/`로 5초 타임아웃 HTTP `fetch` 요청을 병렬 수행합니다.
-- `[scraper.js:fetchHtmlViaProxies]` — 외부 CORS 프록시(`https://api.codetabs.com/v1/proxy`, `https://api.allorigins.win/get`)로 5초 타임아웃 HTTP `fetch` 경쟁 요청을 수행합니다.
+- `[scraper.js:fetchHtmlViaCustomProxy]` — 자체 Cloudflare Workers 프록시(`VITE_SCRAPE_PROXY_URL`, 기본값 `https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev`)로 5초 타임아웃 HTTP `fetch` 요청을 수행합니다.
 - `[scraper.js:fetchYoutubeDurationSeconds]` — `import.meta.env.VITE_YOUTUBE_API_KEY`를 읽어 `https://www.googleapis.com/youtube/v3/videos`로 HTTP `fetch` 요청을 보내고, 실패 시 `console.warn`으로 경고를 출력합니다.
-- `[scraper.js:scrapeUrl]` — YouTube URL의 경우 `https://www.youtube.com/oembed`로 HTTP `fetch` 요청을 보내고, 3단계 HTML 경로에서는 브라우저 `DOMParser`로 HTML을 파싱하며, 폴백 전환 시 `console.warn`에 기록합니다.
+- `[scraper.js:scrapeUrl]` — YouTube URL의 경우 `https://www.youtube.com/oembed`로 HTTP `fetch` 요청을 보내고, 2단계 HTML 경로에서는 브라우저 `DOMParser`로 HTML을 파싱하며, 폴백 전환 시 `console.warn`에 기록합니다.
 
 ## Verification
 - Run: `npm run lint`
