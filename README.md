@@ -86,40 +86,41 @@ Oh My Scrap은 웹상의 수많은 정보들을 단순히 저장하는 것을 �
 ---
 
 ## System Overview
-Oh My Scrap은 Firebase Authentication(Google OAuth), Cloud Firestore(`asia-northeast3`), 그리고 Google Generative AI SDK(`@google/generative-ai`)를 기반으로 동작하는 React 19 + Vite 단일 페이지 애플리케이션(SPA)입니다. 인증된 사용자가 모달 다이얼로그(`AddScrapDialog`, `ReAnalyzeDialog`)를 통해 웹페이지 또는 YouTube URL을 제출하면, 클라이언트 측 스크래핑 파이프라인(`scraper.js`)이 CORS 프록시 폴백 또는 YouTube oEmbed / Data API v3를 이용해 메타데이터와 본문 텍스트를 추출하고, 설정에 따라 Gemini(`gemini.js`)로 본문이나 영상을 요약한 뒤 Firestore `scraps` 컬렉션에 저장하며, 사용자별 설정(`language`, `useAi`)은 `users/{uid}` 문서를 통해 실시간으로 동기화합니다.
+Oh My Scrap은 Firebase Authentication(Google OAuth), Cloud Firestore(`asia-northeast3`), 그리고 전용 Cloudflare Workers 백엔드 프록시(`workers/scrape-proxy`)를 기반으로 동작하는 React 19 + Vite 단일 페이지 애플리케이션(SPA)입니다. 인증된 사용자가 모달 다이얼로그(`AddScrapDialog`, `ReAnalyzeDialog`)를 통해 웹페이지 또는 YouTube URL을 제출하면, 클라이언트 측 스크래핑 파이프라인(`scraper.js`)이 Firebase Auth ID 토큰을 첨부하여 Cloudflare Worker(`GET /?url=...`, `GET /youtube-duration`) 또는 공식 공개 API로 메타데이터와 본문 텍스트를 추출하고, 설정에 따라 Cloudflare Worker(`POST /analyze`)의 Gemini AI 백엔드로 본문이나 영상을 요약한 뒤 Firestore `scraps` 컬렉션에 저장하며, 사용자별 설정(`language`, `useAi`)은 `users/{uid}` 문서를 통해 실시간으로 동기화합니다.
 
 ## Local Interface & Invariants
 - `[vite.config.js:default]` — `defineConfig({ plugins: [react()] })`를 사용하는 Vite 번들러 설정입니다.
 - `[eslint.config.js:default]` — `dist`를 제외하고 `**/*.{js,jsx}`를 대상으로 `@eslint/js` recommended, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh` 규칙을 적용하는 ESLint Flat Config입니다(`no-unused-vars`는 `^[A-Z_]` 패턴을 제외한 미사용 변수를 에러로 처리).
 - `[firestore.rules:cloud.firestore]` — `/databases/{database}/documents/scraps/{scrapId}` 및 `/databases/{database}/documents/users/{userId}`에 대한 Firestore v2 보안 규칙입니다:
-  - `/scraps/{scrapId}` 읽기/쓰기는 `request.auth != null && request.auth.uid == resource.data.userId`를 요구하며, 문서 생성(`create`)은 `request.auth != null && request.resource.data.userId == request.auth.uid`를 요구합니다.
-  - `/users/{userId}` 읽기/쓰기는 `request.auth != null && request.auth.uid == userId`를 요구합니다.
+  - `/scraps/{scrapId}` `read`/`delete`는 `request.auth != null && request.auth.uid == resource.data.userId`를 요구합니다. `create`는 `request.resource.data.userId == request.auth.uid`, 허용 필드 집합, `http(s)://` URL 및 필드 타입·크기(`isValidScrapFields`)를 검증합니다. `update`는 소유권 유지(`request.resource.data.userId == resource.data.userId`), 변경 가능 키 제한(`title`, `originalTitle`, `thumbnail`, `tags`, `fullSummary`) 및 스키마 검증을 강제합니다.
+  - `/users/{userId}`는 `request.auth != null && request.auth.uid == userId`를 요구하며, 허용 키(`language` ∈ `['en', 'ko']`, `useAi` ∈ `bool`)만 생성·수정할 수 있습니다.
 - `[firebase.json:firestore]` — `asia-northeast3` 리전의 `(default)` Firestore 데이터베이스에 `firestore.rules`와 `firestore.indexes.json`을 연결합니다.
-- `[firebase.json:hosting]` — `dist` 정적 빌드 결과물을 서빙하며, 모든 경로를 `/index.html`로 연결하는 SPA 리라이트(`** -> /index.html`)와 `/index.html`(`no-cache, no-store, must-revalidate`) 및 `/assets/**`(`public, max-age=31536000, immutable`) 캐시 헤더를 설정합니다.
+- `[firebase.json:hosting]` — `dist` 정적 빌드 결과물을 서빙하며, SPA 리라이트(`** -> /index.html`), 전역 보안 헤더(`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin-allow-popups`), `/index.html`(`no-cache, no-store, must-revalidate`) 및 `/assets/**`(`public, max-age=31536000, immutable`) 캐시 헤더를 설정합니다.
 
 ## Subdirectories & System Boundaries
 - `src`: [./src/README.md](./src/README.md) — 루트 React 애플리케이션 패키지(`main.jsx`, `App.jsx`)이자 모든 클라이언트 기능 모듈의 상위 경계입니다.
   - `src/components`: [./src/components/README.md](./src/components/README.md) — 스크랩 추가·재분석 다이얼로그 및 보관함 뷰(`AddScrapDialog`, `ReAnalyzeDialog`, `ScrapItem`, `ScrapList`)를 제공합니다.
   - `src/context`: [./src/context/README.md](./src/context/README.md) — Firebase Auth 상태 및 Firestore 사용자 설정 실시간 동기화 컨텍스트(`AuthProvider`, `useAuth`)를 제공합니다.
   - `src/firebase`: [./src/firebase/README.md](./src/firebase/README.md) — Firebase 앱 초기화 및 싱글턴 핸들(`auth`, `googleProvider`, `db`)을 내보냅니다.
-  - `src/services`: [./src/services/README.md](./src/services/README.md) — URL 메타데이터·본문 스크래퍼(`scrapeUrl`)와 Gemini 멀티모달 콘텐츠 분석기(`analyzeContent`)를 제공합니다.
+  - `src/services`: [./src/services/README.md](./src/services/README.md) — URL 메타데이터·본문 스크래퍼(`scrapeUrl`)와 인증된 Worker AI 분석 클라이언트(`analyzeContent`)를 제공합니다.
+- `workers/scrape-proxy`: [./workers/scrape-proxy/README.md](./workers/scrape-proxy/README.md) — Origin/Firebase Auth JWT 검증, SSRF 방어, `GEMINI_API_KEY`/`YOUTUBE_API_KEY` 시크릿 격리를 수행하는 Cloudflare Workers 프록시 서버입니다.
 
 ## Global Invariants
-- **사용자 데이터 격리 (Tenant Isolation)**: Firestore `scraps` 컬렉션의 모든 문서는 `userId == request.auth.uid`를 통해 소유자별로 격리되며(`[ScrapList.jsx:ScrapList]`의 클라이언트 쿼리 및 `[firestore.rules:/scraps/{scrapId}]` 서버 규칙으로 이중 강제), `users/{userId}` 문서 역시 `request.auth.uid == userId`로 제한됩니다.
+- **사용자 데이터 격리 (Tenant Isolation)**: Firestore `scraps` 컬렉션의 모든 문서는 `userId == request.auth.uid`를 통해 소유자별로 격리되며(`[ScrapList.jsx:ScrapList]`의 클라이언트 쿼리 및 `[firestore.rules:/scraps/{scrapId}]` 서버 규칙으로 이중 강제), `update` 시 `userId` 불변성과 스키마 제한이 강제됩니다. `users/{userId}` 문서 역시 `request.auth.uid == userId` 및 허용 필드로 제한됩니다.
+- **API 키 격리 및 프록시 인증 경계**: `GEMINI_API_KEY`와 `YOUTUBE_API_KEY`는 클라이언트 번들에 포함되지 않고 Cloudflare Worker Secrets로만 관리되며, Worker의 모든 비공개 엔드포인트(`/?url=`, `/youtube-duration`, `/analyze`)는 허용된 `Origin` 헤더와 유효한 Firebase Auth ID 토큰(RS256 JWT)을 모두 요구합니다.
 - **인증 기반 UI 게이트**: `[App.jsx:MainApp]`은 `!user` 상태에서 Google 로그인 랜딩 화면만 렌더링하여 비인증 사용자의 `ScrapList` 및 `AddScrapDialog` 접근을 차단하며, `[AuthContext.jsx:AuthProvider]`는 초기 인증 상태 확인이 완료(`!loading`)되기 전까지 하위 트리를 렌더링하지 않습니다.
 - **AI 우회 및 쿼터 보호 규칙**:
   - `useAi`가 `false`일 때 `[AddScrapDialog.jsx:handleSubmit]` 및 `[ReAnalyzeDialog.jsx:handleAnalyze]`는 `analyzeContent` 호출과 YouTube 재생시간 조회(`checkDuration: false`)를 모두 건너뜁니다.
   - YouTube 영상 길이가 `YOUTUBE_AI_MAX_SECONDS`(`180`초)를 초과하면 `[scraper.js:scrapeUrl]`에서 `skipAi = true`를 반환하여 `analyzeContent`를 생략하고 기본 태그 `["YouTube", "Video"]`를 저장합니다.
-  - `[gemini.js:analyzeContent]`에 전달되는 웹페이지 텍스트는 최대 5,000자로 제한되며, YouTube URL은 Gemini API 호출 전 `https://www.youtube.com/watch?v=${id}` 형식으로 정규화됩니다.
+  - `[gemini.js:analyzeContent]` 및 Worker `POST /analyze`에 전달되는 웹페이지 텍스트는 최대 5,000자로 제한되며, `systemInstruction`과 `<document>` 경계 태그로 프롬프트 인젝션을 분리합니다. YouTube URL은 정규화된 `https://www.youtube.com/watch?v=${id}` 형식만 허용됩니다.
 - **태그 개수 제한 및 도메인 강제 규칙**: 스크랩 카드 렌더링 및 다이얼로그 저장 시 태그는 최대 3개(`slice(0, 3)`)로 제한되며, `news.hada.io` URL에는 `"GeekNews"` 태그(`FORCED_SITE_TAGS`)가, YouTube 영상에는 `"YouTube"` 태그가 항상 보장됩니다.
 
 ## Global Side Effects
 - **Firebase Authentication & Cloud Firestore**: 실시간 `onSnapshot` 리스너, `setDoc`, `addDoc`, `updateDoc`, `deleteDoc`을 통해 `users/{uid}` 및 `scraps/{scrapId}` 문서를 읽고 쓰며, `signInWithPopup`으로 Google OAuth 팝업 로그인을 수행합니다.
 - **외부 네트워크 호출**:
-  - `VITE_GEMINI_API_KEY`를 사용하여 `@google/generative-ai`(`model.generateContent`)로 Google Generative AI API를 호출합니다.
-  - HTML 스크래핑을 위해 공개 CORS 프록시(`https://api.codetabs.com/v1/proxy`, `https://corsproxy.io/`, `https://api.allorigins.win/get`)를 순차 호출합니다.
-  - 영상 메타데이터 및 재생시간 확인을 위해 YouTube oEmbed(`https://www.youtube.com/oembed`)와 YouTube Data API v3(`https://www.googleapis.com/youtube/v3/videos`, `VITE_YOUTUBE_API_KEY` 사용)를 호출합니다.
-- **브라우저 환경 상호작용**: `navigator.clipboard.readText()`로 시스템 클립보드를 읽고, `window.open`으로 외부 링크를 열며, DOM 이벤트 리스너(`keydown`, `resize`)를 등록·해제합니다.
+  - 자체 Cloudflare Workers 프록시(`VITE_SCRAPE_PROXY_URL`)에 Firebase ID 토큰을 첨부하여 HTML 스크래핑(`GET /?url=...`), YouTube 영상 길이 조회(`GET /youtube-duration`), Gemini AI 분석(`POST /analyze`)을 요청합니다.
+  - 공개 메타데이터 조회를 위해 YouTube oEmbed(`https://www.youtube.com/oembed`) 및 GitHub 저장소 API/Raw README를 직접 호출합니다.
+- **브라우저 환경 상호작용**: `navigator.clipboard.readText()`로 시스템 클립보드를 읽고, `openSafeUrl`로 검증된 `http(s):` 링크를 새 탭(`noopener,noreferrer`)에서 열며, DOM 이벤트 리스너(`keydown`, `resize`)를 등록·해제합니다.
 
 ## System Verification
 - Run: `npm run lint`

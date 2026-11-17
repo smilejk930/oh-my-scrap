@@ -26,8 +26,8 @@ URL 스크랩의 추가, 재분석, 목록/카드 조회, 검색·날짜 필터�
 - `[ReAnalyzeDialog.jsx:ReAnalyzeDialog]` — `document`의 `keydown` 이벤트 리스너를 등록·해제합니다.
 - `[ScrapItem.jsx:handleDelete]` — `window.confirm`으로 삭제 확인을 받은 뒤 `deleteDoc(doc(db, "scraps", scrap.id))`으로 Firestore 문서를 삭제하고 `onDelete(scrap.id)`를 호출합니다. 실패 시 `console.error` 및 `alert`를 호출합니다.
 - `[ScrapItem.jsx:handleDelayedAnalysis]` — `scrapeUrl(scrap.url, { checkDuration: true })`과 조건부 `analyzeContent(content, preferredLanguage, isYoutubeVideo ? scrap.url : null)`를 호출하여 `updateDoc(doc(db, "scraps", scrap.id), ...)`으로 Firestore 문서를 갱신하며, 실패 시 `console.error` 및 `alert`를 호출합니다.
-- `[ScrapItem.jsx:handleOpen]` — `window.open(scrap.url, "_blank")`을 통해 원본 URL을 새 브라우저 탭에서 엽니다.
-- `[ScrapList.jsx:ScrapList]` — `onSnapshot`을 통해 `where("userId", "==", user.uid)` 및 `orderBy("createdAt", "desc")` 조건으로 Firestore `scraps` 컬렉션을 실시간 구독하고, `window`의 `resize` 이벤트 리스너를 등록·해제하며, 상세 패널의 썸네일 클릭 시 `window.open(selectedScrap.url, "_blank", "noopener,noreferrer")`로 원본 페이지를 엽니다.
+- `[ScrapItem.jsx:handleOpen]` — `[scraper.js:openSafeUrl]`을 통해 `http:`/`https:` 프로토콜이 검증된 원본 URL만 새 브라우저 탭(`_blank`, `noopener,noreferrer`)에서 엽니다.
+- `[ScrapList.jsx:ScrapList]` — `onSnapshot`을 통해 `where("userId", "==", user.uid)` 및 `orderBy("createdAt", "desc")` 조건으로 Firestore `scraps` 컬렉션을 실시간 구독하고, `window`의 `resize` 이벤트 리스너를 등록·해제하며, 상세 패널의 썸네일 클릭 시 `[scraper.js:openSafeUrl]`로 원본 페이지를 엽니다.
 
 ## Verification
 - Run: `npm run lint`
