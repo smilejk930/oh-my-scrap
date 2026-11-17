@@ -25,6 +25,8 @@ dist-ssr
 
 # env
 .env
+.dev.vars
+workers/**/.dev.vars
 
 # Firebase
 .firebase/

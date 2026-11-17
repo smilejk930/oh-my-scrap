@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebase";
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
+import { openSafeUrl } from "../services/scraper";
 import ScrapItem from "./ScrapItem";
 import { Search, LayoutGrid, List as ListIcon, X, Loader2, Plus } from "lucide-react";
 import { motion } from "framer-motion";
@@ -203,7 +204,7 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick }) => {
                     src={selectedScrap.thumbnail || "/placeholder.svg"}
                     alt="thumbnail"
                     style={{ width: "100%", height: "180px", objectFit: "cover", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.05)", display: "block", cursor: "pointer" }}
-                    onClick={() => window.open(selectedScrap.url, "_blank", "noopener,noreferrer")}
+                    onClick={() => openSafeUrl(selectedScrap.url)}
                     onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.92"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                     onError={(e) => e.target.src = "/placeholder.svg"}

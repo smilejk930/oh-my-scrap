@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ExternalLink, ChevronDown, ChevronUp, Clock, Tag, Trash2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { scrapeUrl, getForcedSiteTag, generateBasicTags } from "../services/scraper";
+import { scrapeUrl, getForcedSiteTag, generateBasicTags, openSafeUrl } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase/firebase";
@@ -77,7 +77,7 @@ const ScrapItem = ({ scrap, mode, isDesktop, isSelected, onSelect, onDelete }) =
   };
 
   const handleOpen = () => {
-    window.open(scrap.url, "_blank");
+    openSafeUrl(scrap.url);
   };
 
   if (mode === "card") {

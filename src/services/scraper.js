@@ -1,6 +1,39 @@
+import { auth } from "../firebase/firebase";
+
 const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 Gemini 1M 토큰 한도 초과 유발 → AI 분석 생략
 const REQUEST_TIMEOUT_MS = 5000;
+const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev";
+
+export const getProxyBaseUrl = () =>
+  (import.meta.env.VITE_SCRAPE_PROXY_URL || DEFAULT_CUSTOM_PROXY_URL).trim().replace(/\/+$/, "");
+
+export const getAuthHeaders = async () => {
+  const token = await auth.currentUser?.getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+export const sanitizeHttpUrl = (rawUrl, baseUrl = undefined) => {
+  if (!rawUrl || typeof rawUrl !== "string") return null;
+  try {
+    const parsed = baseUrl ? new URL(rawUrl, baseUrl) : new URL(rawUrl);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const openSafeUrl = (rawUrl) => {
+  const safeUrl = sanitizeHttpUrl(rawUrl);
+  if (!safeUrl) {
+    console.warn("[openSafeUrl] Blocked unsafe URL:", rawUrl);
+    return;
+  }
+  window.open(safeUrl, "_blank", "noopener,noreferrer");
+};
 
 // AI/비-AI 경로와 무관하게 호스트네임만으로 태그를 강제하고 싶은 사이트.
 // 도메인에서 추출한 도메인 파트("Hada")가 사이트의 통용 명칭("GeekNews")과 다른 경우에 사용.
@@ -42,7 +75,7 @@ export const generateBasicTags = (url, isYoutubeVideo) => {
   }
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) => {
+export const fetchWithTimeout = async (url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) => {
   if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
     return fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) });
   }
@@ -230,12 +263,11 @@ const scrapeGithubUrl = async (url, { owner, repo }) => {
 };
 
 // 2단계: 자체 Cloudflare Workers 스크래핑 프록시 서버를 통해 HTML 본문을 가져온다.
-const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev";
-
 const fetchHtmlViaCustomProxy = async (target) => {
-  const baseUrl = (import.meta.env.VITE_SCRAPE_PROXY_URL || DEFAULT_CUSTOM_PROXY_URL).trim().replace(/\/+$/, "");
+  const baseUrl = getProxyBaseUrl();
   const proxyUrl = `${baseUrl}/?url=${encodeURIComponent(target)}`;
-  const response = await fetchWithTimeout(proxyUrl);
+  const headers = await getAuthHeaders();
+  const response = await fetchWithTimeout(proxyUrl, { headers });
   if (!response.ok) throw new Error(`CustomProxy HTTP ${response.status}`);
   const text = await response.text();
   if (!text || !text.trim() || isAntiBotInterstitial(text)) {
@@ -244,29 +276,18 @@ const fetchHtmlViaCustomProxy = async (target) => {
   return text;
 };
 
-// ISO 8601 duration (e.g. "PT1H2M3S") → seconds
-const parseIsoDuration = (iso) => {
-  const m = iso?.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
-  if (!m) return null;
-  const [, h, mi, s] = m;
-  return (Number(h) || 0) * 3600 + (Number(mi) || 0) * 60 + (Number(s) || 0);
-};
-
 const fetchYoutubeDurationSeconds = async (videoId) => {
-  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-  if (!apiKey) {
-    console.warn("VITE_YOUTUBE_API_KEY not set — YouTube duration check skipped. Long videos may exceed Gemini token limit.");
-    return null;
-  }
   try {
-    const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoId}&key=${apiKey}`;
-    const res = await fetchWithTimeout(apiUrl);
+    const baseUrl = getProxyBaseUrl();
+    const apiUrl = `${baseUrl}/youtube-duration?videoId=${encodeURIComponent(videoId)}`;
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(apiUrl, { headers });
     if (!res.ok) {
-      console.warn(`YouTube Data API failed: HTTP ${res.status}`);
+      console.warn(`YouTube duration proxy failed: HTTP ${res.status}`);
       return null;
     }
     const data = await res.json();
-    return parseIsoDuration(data?.items?.[0]?.contentDetails?.duration);
+    return typeof data?.seconds === "number" ? data.seconds : null;
   } catch (e) {
     console.warn("YouTube duration fetch error:", e.message);
     return null;
@@ -372,7 +393,7 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
     }
 
     const ogImage = getMeta("og:image");
-    let thumbnail = ogImage;
+    let thumbnail = sanitizeHttpUrl(ogImage, url);
     if (!thumbnail) {
       const iconEl =
         doc.querySelector('link[rel="apple-touch-icon"]') ||
@@ -380,15 +401,7 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
         doc.querySelector('link[rel="icon"]') ||
         doc.querySelector('link[rel="shortcut icon"]');
       const href = iconEl?.getAttribute("href") || "";
-      if (href) {
-        try {
-          thumbnail = href.startsWith("http") ? href : new URL(href, url).href;
-        } catch {
-          thumbnail = getGoogleFaviconUrl(url);
-        }
-      } else {
-        thumbnail = getGoogleFaviconUrl(url);
-      }
+      thumbnail = sanitizeHttpUrl(href, url) || getGoogleFaviconUrl(url);
     }
 
     // Notion 같은 SPA는 본문이 JS로 렌더되어 og:title/description만 남는다.

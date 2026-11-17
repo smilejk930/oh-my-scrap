@@ -7,7 +7,13 @@ preview_urls = false
 [vars]
 # 쉼표(,)로 구분된 허용 Origin 목록. 비워두면 기본값(Firebase 호스팅 도메인 및 localhost)이 적용됩니다.
 ALLOWED_ORIGINS = "https://oh-my-scrap.web.app,https://oh-my-scrap.firebaseapp.com,http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173"
+# Firebase 프로젝트 ID (ID 토큰의 aud/iss 검증에 사용)
+FIREBASE_PROJECT_ID = "oh-my-scrap"
 # 엣지 캐시 유지 시간(초)
 CACHE_TTL_SECONDS = "300"
 # 최대 응답 본문 크기(바이트) - 2MB
 MAX_RESPONSE_BYTES = "2097152"
+
+# 민감한 API 키는 Worker Secrets로 저장해야 합니다 (wrangler.toml이나 클라이언트 .env에 절대 넣지 마세요):
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put YOUTUBE_API_KEY
