@@ -10,6 +10,11 @@ service cloud.firestore {
         && (!('thumbnail' in data) || data.thumbnail == null || (data.thumbnail is string && data.thumbnail.size() <= 2048))
         && (!('tags' in data) || (data.tags is list && data.tags.size() <= 10))
         && (!('fullSummary' in data) || (data.fullSummary is string && data.fullSummary.size() <= 15000))
+        && (!('contentType' in data) || (data.contentType is string && data.contentType in ['general', 'recipe', 'tech', 'video', 'place', 'product']))
+        && (!('isPinned' in data) || data.isPinned is bool)
+        && (!('isRead' in data) || data.isRead is bool)
+        && (!('userNote' in data) || (data.userNote is string && data.userNote.size() <= 5000))
+        && (!('checkedItems' in data) || (data.checkedItems is list && data.checkedItems.size() <= 100))
         && (!('createdAt' in data) || data.createdAt is timestamp);
     }
 
@@ -17,12 +22,18 @@ service cloud.firestore {
       allow read, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['userId', 'url', 'title', 'originalTitle', 'thumbnail', 'tags', 'fullSummary', 'createdAt'])
+        && request.resource.data.keys().hasOnly([
+          'userId', 'url', 'title', 'originalTitle', 'thumbnail', 'tags', 'fullSummary',
+          'contentType', 'isPinned', 'isRead', 'userNote', 'checkedItems', 'createdAt'
+        ])
         && isValidScrapFields(request.resource.data);
       allow update: if request.auth != null
         && request.auth.uid == resource.data.userId
         && request.resource.data.userId == resource.data.userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'originalTitle', 'thumbnail', 'tags', 'fullSummary'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'originalTitle', 'thumbnail', 'tags', 'fullSummary',
+          'contentType', 'isPinned', 'isRead', 'userNote', 'checkedItems'
+        ])
         && isValidScrapFields(request.resource.data);
     }
 
