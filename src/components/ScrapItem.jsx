@@ -6,8 +6,6 @@ import {
   Trash2,
   RefreshCw,
   Pin,
-  CheckCircle2,
-  Circle,
   Pencil,
   StickyNote,
   Check,
@@ -24,6 +22,7 @@ import {
 import { analyzeContent } from "../services/gemini";
 import { useAuth } from "../context/AuthContext";
 import { useScraps } from "../context/ScrapContext";
+import { useTranslation } from "../i18n/useTranslation";
 import ReAnalyzeDialog from "./ReAnalyzeDialog";
 import SmartSummaryView from "./SmartSummaryView";
 
@@ -39,7 +38,8 @@ const ScrapItem = ({
   onToggleMobileExpand,
 }) => {
   const { preferredLanguage } = useAuth();
-  const { togglePin, toggleRead, markRead, saveUserNote, updateScrap, deleteScrap } = useScraps();
+  const { togglePin, saveUserNote, updateScrap, deleteScrap } = useScraps();
+  const { t } = useTranslation();
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isReAnalyzeOpen, setIsReAnalyzeOpen] = useState(false);
@@ -58,19 +58,18 @@ const ScrapItem = ({
   const [isSavingNote, setIsSavingNote] = useState(false);
 
   const createdAt = scrap.createdAt?.toDate ? scrap.createdAt.toDate() : null;
-  const dateStr = createdAt ? format(createdAt, "yy.MM.dd") : "Just now";
-  const isUnread = scrap.isRead !== true;
+  const dateStr = createdAt ? format(createdAt, "yy.MM.dd") : t("common.justNow");
   const isPinned = Boolean(scrap.isPinned);
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this?")) {
+    if (window.confirm(t("detail.confirmDelete"))) {
       try {
         await deleteScrap(scrap.id);
         if (onDelete) onDelete(scrap.id);
       } catch (error) {
         console.error(error);
-        alert("An error occurred while deleting.");
+        alert(t("detail.deleteError"));
       }
     }
   };
@@ -90,6 +89,7 @@ const ScrapItem = ({
         skipReason,
         isYoutubeVideo,
         useVideoMultimodal,
+        lowResVideo,
         contentTypeHint,
       } = await scrapeUrl(scrap.url, { checkDuration: true, language: preferredLanguage });
 
@@ -99,14 +99,14 @@ const ScrapItem = ({
           title,
           tags: generateBasicTags(scrap.url, isYoutubeVideo),
           contentType: contentTypeHint || (isYoutubeVideo ? "video" : "general"),
-          fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : ""),
+          fullSummary: skipReason || (isYoutubeVideo ? t("dialog.statusSkippedAi") : ""),
         };
       } else {
         analysis = await analyzeContent(
           content,
           preferredLanguage,
           useVideoMultimodal ? scrap.url : null,
-          { contentTypeHint }
+          { contentTypeHint, lowResVideo }
         );
       }
 
@@ -124,7 +124,7 @@ const ScrapItem = ({
       });
     } catch (error) {
       console.error(error);
-      alert("An error occurred during analysis.");
+      alert(t("detail.analyzeError"));
     } finally {
       setIsAnalyzing(false);
     }
@@ -132,7 +132,6 @@ const ScrapItem = ({
 
   const handleOpen = (e) => {
     e?.stopPropagation();
-    markRead(scrap);
     openSafeUrl(scrap.url);
   };
 
@@ -153,12 +152,12 @@ const ScrapItem = ({
     try {
       const pendingTag = tagInput.replace(/^#/, "").trim();
       const finalTags =
-        pendingTag && editTags.length < 10 && !editTags.some((t) => t.toLowerCase() === pendingTag.toLowerCase())
+        pendingTag && editTags.length < 10 && !editTags.some((tag) => tag.toLowerCase() === pendingTag.toLowerCase())
           ? [...editTags, pendingTag]
           : editTags;
 
       await updateScrap(scrap.id, {
-        title: editTitle.trim() || scrap.title || "Untitled",
+        title: editTitle.trim() || scrap.title || t("common.untitled"),
         tags: finalTags,
         fullSummary: editSummary,
       });
@@ -166,7 +165,7 @@ const ScrapItem = ({
       setIsEditingMobile(false);
     } catch (err) {
       console.error(err);
-      alert("Failed to update scrap.");
+      alert(t("detail.updateError"));
     } finally {
       setIsSavingEdit(false);
     }
@@ -181,7 +180,7 @@ const ScrapItem = ({
       setIsEditingNote(false);
     } catch (err) {
       console.error(err);
-      alert("Failed to save note.");
+      alert(t("detail.saveNoteError"));
     } finally {
       setIsSavingNote(false);
     }
@@ -217,7 +216,7 @@ const ScrapItem = ({
               }}
             />
             {isPinned && (
-              <span className="pin-badge card-pin" title="Pinned">
+              <span className="pin-badge card-pin" title={t("common.pinned")}>
                 <Pin size={12} />
               </span>
             )}
@@ -225,7 +224,7 @@ const ScrapItem = ({
               <button
                 type="button"
                 className="btn"
-                title={isPinned ? "Unpin" : "Pin to top"}
+                title={isPinned ? t("common.unpin") : t("common.pinToTop")}
                 style={{
                   width: "34px",
                   height: "34px",
@@ -249,7 +248,7 @@ const ScrapItem = ({
               <button
                 type="button"
                 className="btn"
-                title="Re-analyze"
+                title={t("common.reAnalyze")}
                 style={{
                   width: "34px",
                   height: "34px",
@@ -273,7 +272,7 @@ const ScrapItem = ({
               <button
                 type="button"
                 className="btn"
-                title="Delete"
+                title={t("common.delete")}
                 style={{
                   width: "34px",
                   height: "34px",
@@ -295,9 +294,8 @@ const ScrapItem = ({
           </div>
           <div style={{ padding: "15px" }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: "6px", marginBottom: "8px" }}>
-              {isUnread && <span className="unread-dot" style={{ marginTop: "7px" }} title="Unread" />}
               <h3 className="scrap-title" style={{ fontSize: "17px", whiteSpace: "normal", margin: 0 }}>
-                {scrap.title || "Unanalyzed Scrap"}
+                {scrap.title || t("common.unanalyzedScrap")}
               </h3>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
@@ -327,7 +325,7 @@ const ScrapItem = ({
                   onClick={handleDelayedAnalysis}
                   disabled={isAnalyzing}
                 >
-                  {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
+                  {isAnalyzing ? t("dialog.analyzing") : t("detail.analyzeWithAi")}
                 </button>
               )}
             </div>
@@ -372,13 +370,12 @@ const ScrapItem = ({
           />
           <div className="scrap-content">
             <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-              {isUnread && <span className="unread-dot" title="Unread" />}
               {isPinned && (
-                <span className="pin-badge" title="Pinned">
+                <span className="pin-badge" title={t("common.pinned")}>
                   <Pin size={11} />
                 </span>
               )}
-              <h3 className="scrap-title">{scrap.title || "Unanalyzed Scrap"}</h3>
+              <h3 className="scrap-title">{scrap.title || t("common.unanalyzedScrap")}</h3>
             </div>
             <div className="flex-between" style={{ marginTop: "4px" }}>
               <div style={{ display: "flex", gap: "5px", overflow: "hidden" }}>
@@ -410,14 +407,14 @@ const ScrapItem = ({
                 onClick={handleDelayedAnalysis}
                 disabled={isAnalyzing}
               >
-                {isAnalyzing ? "..." : "Analyze"}
+                {isAnalyzing ? "..." : t("detail.analyzeShort")}
               </button>
             ) : (
               !isDesktop && (
                 <button
                   type="button"
                   style={{ background: "none", border: "none", color: "#C7C7CC", display: "flex" }}
-                  aria-label="Toggle details"
+                  aria-label={t("detail.toggleDetails")}
                 >
                   {isMobileExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </button>
@@ -431,7 +428,7 @@ const ScrapItem = ({
                     e.stopPropagation();
                     togglePin(scrap);
                   }}
-                  title={isPinned ? "Unpin" : "Pin to top"}
+                  title={isPinned ? t("common.unpin") : t("common.pinToTop")}
                   className="list-action-btn"
                   style={{ color: isPinned ? "var(--accent-color)" : "#A1A1A6" }}
                 >
@@ -443,7 +440,7 @@ const ScrapItem = ({
                     e.stopPropagation();
                     setIsReAnalyzeOpen(true);
                   }}
-                  title="Re-analyze"
+                  title={t("common.reAnalyze")}
                   className="list-action-btn"
                   style={{ color: "var(--accent-color)" }}
                 >
@@ -455,7 +452,7 @@ const ScrapItem = ({
               <button
                 type="button"
                 onClick={handleDelete}
-                title="Delete"
+                title={t("common.delete")}
                 className="list-action-btn"
                 style={{ color: "#FF3B30" }}
               >
@@ -476,7 +473,7 @@ const ScrapItem = ({
             {isEditingMobile ? (
               <form className="inline-edit-form" onSubmit={handleSaveMobileEdit}>
                 <label className="edit-field-label">
-                  Title
+                  {t("detail.titleLabel")}
                   <input
                     type="text"
                     value={editTitle}
@@ -486,14 +483,15 @@ const ScrapItem = ({
                   />
                 </label>
                 <div className="edit-field-label">
-                  Tags ({editTags.length}/10)
+                  {t("detail.tagsLabel", { count: editTags.length })}
                   <div className="edit-tags-container">
-                    {editTags.map((t, idx) => (
-                      <span key={`${t}-${idx}`} className="edit-tag-pill">
-                        #{t}
+                    {editTags.map((tag, idx) => (
+                      <span key={`${tag}-${idx}`} className="edit-tag-pill">
+                        #{tag}
                         <button
                           type="button"
                           onClick={() => setEditTags((prev) => prev.filter((_, i) => i !== idx))}
+                          aria-label={t("detail.removeTag", { tag })}
                         >
                           <X size={11} />
                         </button>
@@ -503,14 +501,14 @@ const ScrapItem = ({
                       <input
                         type="text"
                         className="edit-tag-input"
-                        placeholder="Add tag & Enter..."
+                        placeholder={t("detail.addTagPlaceholder")}
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === ",") {
                             e.preventDefault();
                             const clean = tagInput.replace(/^#/, "").trim();
-                            if (clean && !editTags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
+                            if (clean && !editTags.some((tag) => tag.toLowerCase() === clean.toLowerCase())) {
                               setEditTags((prev) => [...prev, clean]);
                             }
                             setTagInput("");
@@ -521,7 +519,7 @@ const ScrapItem = ({
                   </div>
                 </div>
                 <label className="edit-field-label">
-                  Summary
+                  {t("detail.summaryLabel")}
                   <textarea
                     className="edit-summary-textarea"
                     rows={5}
@@ -538,7 +536,7 @@ const ScrapItem = ({
                     onClick={() => setIsEditingMobile(false)}
                     disabled={isSavingEdit}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="submit"
@@ -547,7 +545,7 @@ const ScrapItem = ({
                     disabled={isSavingEdit}
                   >
                     <Check size={14} />
-                    <span>{isSavingEdit ? "Saving..." : "Save"}</span>
+                    <span>{isSavingEdit ? t("common.saving") : t("common.save")}</span>
                   </button>
                 </div>
               </form>
@@ -560,7 +558,7 @@ const ScrapItem = ({
                   <div className="user-note-header">
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                       <StickyNote size={13} />
-                      <span>My Note</span>
+                      <span>{t("detail.myNote")}</span>
                     </span>
                     {!isEditingNote && (
                       <button
@@ -571,7 +569,7 @@ const ScrapItem = ({
                           setIsEditingNote(true);
                         }}
                       >
-                        {scrap.userNote ? "Edit" : "+ Add Note"}
+                        {scrap.userNote ? t("common.edit") : t("detail.addNoteBtn")}
                       </button>
                     )}
                   </div>
@@ -579,7 +577,7 @@ const ScrapItem = ({
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                       <textarea
                         className="user-note-textarea"
-                        placeholder="Why did you save this? Add your thoughts..."
+                        placeholder={t("detail.notePlaceholder")}
                         value={noteDraft}
                         onChange={(e) => setNoteDraft(e.target.value)}
                         rows={2}
@@ -592,7 +590,7 @@ const ScrapItem = ({
                           onClick={() => setIsEditingNote(false)}
                           disabled={isSavingNote}
                         >
-                          Cancel
+                          {t("common.cancel")}
                         </button>
                         <button
                           type="button"
@@ -600,7 +598,7 @@ const ScrapItem = ({
                           onClick={handleSaveMobileNote}
                           disabled={isSavingNote}
                         >
-                          {isSavingNote ? "Saving..." : "Save Note"}
+                          {isSavingNote ? t("common.saving") : t("detail.saveNote")}
                         </button>
                       </div>
                     </div>
@@ -622,7 +620,7 @@ const ScrapItem = ({
                         setIsEditingNote(true);
                       }}
                     >
-                      Tap to add a quick note...
+                      {t("detail.noteEmptyMobile")}
                     </p>
                   )}
                 </div>
@@ -644,28 +642,20 @@ const ScrapItem = ({
                     onClick={handleOpen}
                   >
                     <ExternalLink size={15} />
-                    View Original
+                    {t("common.viewOriginal")}
                   </button>
                   <button
                     type="button"
                     onClick={() => togglePin(scrap)}
-                    title={isPinned ? "Unpin" : "Pin"}
+                    title={isPinned ? t("common.unpin") : t("common.pin")}
                     className={`mobile-action-square ${isPinned ? "active" : ""}`}
                   >
                     <Pin size={15} />
                   </button>
                   <button
                     type="button"
-                    onClick={() => toggleRead(scrap)}
-                    title={isUnread ? "Mark as read" : "Mark as unread"}
-                    className={`mobile-action-square ${!isUnread ? "active-green" : ""}`}
-                  >
-                    {!isUnread ? <CheckCircle2 size={15} /> : <Circle size={15} />}
-                  </button>
-                  <button
-                    type="button"
                     onClick={handleStartMobileEdit}
-                    title="Edit"
+                    title={t("common.edit")}
                     className="mobile-action-square"
                   >
                     <Pencil size={15} />
@@ -673,7 +663,7 @@ const ScrapItem = ({
                   <button
                     type="button"
                     onClick={() => setIsReAnalyzeOpen(true)}
-                    title="Re-analyze"
+                    title={t("common.reAnalyze")}
                     className="mobile-action-square"
                     style={{ color: "var(--accent-color)" }}
                   >
@@ -682,7 +672,7 @@ const ScrapItem = ({
                   <button
                     type="button"
                     onClick={handleDelete}
-                    title="Delete"
+                    title={t("common.delete")}
                     className="mobile-action-square"
                     style={{ color: "#FF3B30" }}
                   >

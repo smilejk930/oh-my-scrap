@@ -1,9 +1,11 @@
 import { auth } from "../firebase/firebase";
+import { translate } from "../i18n/translations";
 
 const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 자막(Transcript) 추출 기반 분석으로 전환
+const YOUTUBE_MULTIMODAL_FALLBACK_MAX_SECONDS = 1200; // 20분 이하 영상은 자막 추출 실패 시 저해상도 멀티모달 분석 폴백
 const REQUEST_TIMEOUT_MS = 5000;
-const TRANSCRIPT_TIMEOUT_MS = 12000;
+const TRANSCRIPT_TIMEOUT_MS = 18000;
 const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev";
 const TRACKING_QUERY_PARAMS = new Set([
   "fbclid", "gclid", "dclid", "msclkid", "mc_cid", "mc_eid",
@@ -244,13 +246,13 @@ const isAntiBotInterstitial = (text) => {
 };
 
 // 3단계: 모든 본문 추출이 차단/실패했을 때 URL 자체에서 최소 정보를 복원해 저장을 보장한다.
-const buildFallbackScrap = (url) => {
+const buildFallbackScrap = (url, language = "en") => {
   const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
   const ytMatch = url.match(YT_ID_REGEX);
   const ghRepo = extractGithubOwnerRepo(url);
   const notionTitle = extractNotionPageTitle(url);
 
-  let title = "Untitled";
+  let title = translate(language, "common.untitled");
   if (notionTitle) {
     title = notionTitle;
   } else if (ghRepo) {
@@ -283,15 +285,16 @@ const buildFallbackScrap = (url) => {
     content: title,
     description: "",
     skipAi: true,
-    skipReason: "Webpage content is restricted. Saved with basic link info.",
+    skipReason: translate(language, "service.contentRestrictedSkip"),
     isYoutubeVideo: isYoutube,
     useVideoMultimodal: false,
+    lowResVideo: false,
     contentTypeHint: isYoutube ? "video" : null
   };
 };
 
 // 1단계 (GitHub): 공식 REST API와 HEAD Raw README를 단일 5초 윈도우 내에서 병렬 호출한다.
-const scrapeGithubUrl = async (url, { owner, repo }) => {
+const scrapeGithubUrl = async (url, { owner, repo }, language = "en") => {
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
   const rawReadmeUrl = `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/README.md`;
 
@@ -315,7 +318,7 @@ const scrapeGithubUrl = async (url, { owner, repo }) => {
   const readmeText = readmeResult.status === "fulfilled" ? readmeResult.value : "";
 
   if (!repoData && !readmeText.trim()) {
-    return buildFallbackScrap(url);
+    return buildFallbackScrap(url, language);
   }
 
   const title = repoData?.full_name || `${owner}/${repo}`;
@@ -337,6 +340,7 @@ const scrapeGithubUrl = async (url, { owner, repo }) => {
     skipReason: "",
     isYoutubeVideo: false,
     useVideoMultimodal: false,
+    lowResVideo: false,
     contentTypeHint: "tech"
   };
 };
@@ -400,17 +404,17 @@ export const fetchYoutubeTranscript = async (videoId, language = "en") => {
  * URL에서 메타데이터(제목, 썸네일) 및 본문 텍스트를 추출합니다.
  * @param {string} url - 스크랩할 대상 URL
  * @param {{ checkDuration?: boolean, language?: string }} [options]
- * @returns {Promise<{title: string, thumbnail: string, content: string, description: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean, useVideoMultimodal: boolean, contentTypeHint: string|null}>}
+ * @returns {Promise<{title: string, thumbnail: string, content: string, description: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean, useVideoMultimodal: boolean, lowResVideo: boolean, contentTypeHint: string|null}>}
  */
 export const scrapeUrl = async (url, { checkDuration = true, language = "en" } = {}) => {
   let parsedUrl;
   try {
     parsedUrl = new URL(url);
   } catch {
-    throw new Error("Invalid URL format.");
+    throw new Error(translate(language, "service.invalidUrlFormat"));
   }
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("Invalid URL protocol.");
+    throw new Error(translate(language, "service.invalidUrlProtocol"));
   }
 
   try {
@@ -423,13 +427,14 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
         const response = await fetchWithTimeout(oembedUrl);
         if (!response.ok) throw new Error(`YouTube oEmbed failed: HTTP ${response.status}`);
         const data = await response.json();
-        const ytTitle = data.title || "Untitled";
+        const ytTitle = data.title || translate(language, "common.untitled");
         const ytChannel = data.author_name || "";
 
         const videoId = extractYoutubeVideoId(url);
         let skipAi = false;
         let skipReason = "";
         let useVideoMultimodal = true;
+        let lowResVideo = false;
         let content = `Title: ${ytTitle}\nChannel: ${ytChannel}`;
 
         if (checkDuration && videoId) {
@@ -441,6 +446,7 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
             const transcriptResult = await fetchYoutubeTranscript(videoId, language);
             if (transcriptResult?.transcript && transcriptResult.transcript.length >= 30) {
               useVideoMultimodal = false;
+              lowResVideo = false;
               content = [
                 `Title: ${ytTitle}`,
                 ytChannel ? `Channel: ${ytChannel}` : "",
@@ -451,10 +457,19 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
               ]
                 .filter((line) => line !== "")
                 .join("\n");
+            } else if (seconds <= YOUTUBE_MULTIMODAL_FALLBACK_MAX_SECONDS) {
+              // 자막 추출이 차단되거나 자막이 없더라도 20분 이하 영상은 저해상도 멀티모달 분석으로 폴백
+              skipAi = false;
+              useVideoMultimodal = true;
+              lowResVideo = true;
             } else {
               skipAi = true;
               useVideoMultimodal = false;
-              skipReason = `Video exceeds 3 minutes (${mm}m ${ss}s) and no captions were found. AI analysis was skipped.`;
+              lowResVideo = false;
+              skipReason = translate(language, "service.longVideoNoCaptionsSkip", {
+                min: mm,
+                sec: ss,
+              });
             }
           }
         }
@@ -463,23 +478,24 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
           title: ytTitle,
           thumbnail: data.thumbnail_url || getGoogleFaviconUrl(url),
           content,
-          description: ytChannel ? `Channel: ${ytChannel}` : "",
+          description: ytChannel ? translate(language, "service.channelPrefix", { name: ytChannel }) : "",
           skipAi,
           skipReason,
           isYoutubeVideo: true,
           useVideoMultimodal,
+          lowResVideo,
           contentTypeHint: "video"
         };
       } catch (ytErr) {
         console.warn("[scrapeUrl] YouTube oEmbed failed, falling back to basic info:", ytErr.message);
-        return buildFallbackScrap(url);
+        return buildFallbackScrap(url, language);
       }
     }
 
     // 1단계 B: GitHub 저장소 루트 / 브랜치 트리 전용 추출기
     const githubRepo = parseGithubRepoUrl(url);
     if (githubRepo) {
-      return await scrapeGithubUrl(url, githubRepo);
+      return await scrapeGithubUrl(url, githubRepo, language);
     }
 
     // 2단계: 자체 Cloudflare Workers 프록시 호출 + DOMParser 파싱
@@ -492,7 +508,7 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
       doc.querySelector(`meta[name="${property}"]`)?.getAttribute("content");
 
     const rawMetaTitle = getMeta("og:title") || doc.title?.trim() || "";
-    let title = rawMetaTitle || "Untitled";
+    let title = rawMetaTitle || translate(language, "common.untitled");
     let description = (getMeta("og:description") || getMeta("description") || "").trim();
 
     // Notion publish 페이지는 본문/메타가 SSR되지 않아 "Notion | Where teams..." 마케팅 셸이 잡힌다.
@@ -511,7 +527,7 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
 
     // 빈 셸이거나 복원 불가능한 Notion 마케팅 셸이면 4단계 최소 정보 폴백으로 전환
     if ((!rawMetaTitle && !description && !bodyText) || (NOTION_SHELL_TITLE_REGEX.test(title) && !notionPageTitle)) {
-      return buildFallbackScrap(url);
+      return buildFallbackScrap(url, language);
     }
 
     const ogImage = getMeta("og:image");
@@ -543,10 +559,11 @@ export const scrapeUrl = async (url, { checkDuration = true, language = "en" } =
       skipReason: "",
       isYoutubeVideo: false,
       useVideoMultimodal: false,
+      lowResVideo: false,
       contentTypeHint: null
     };
   } catch (error) {
     console.warn("[scrapeUrl] All extraction stages failed, using minimal URL fallback:", error);
-    return buildFallbackScrap(url);
+    return buildFallbackScrap(url, language);
   }
 };

@@ -2,13 +2,14 @@ import React, { useMemo } from "react";
 import { ChefHat, Code2, PlayCircle, MapPin, ShoppingBag, RotateCcw, Check } from "lucide-react";
 import { extractYoutubeVideoId, openSafeUrl } from "../services/scraper";
 import { useScraps } from "../context/ScrapContext";
+import { useTranslation } from "../i18n/useTranslation";
 
 const TYPE_META = {
-  recipe: { label: "Recipe", Icon: ChefHat, bg: "rgba(255, 149, 0, 0.12)", color: "#C96A00" },
-  tech: { label: "Tech", Icon: Code2, bg: "rgba(88, 86, 214, 0.12)", color: "#4A48B8" },
-  video: { label: "Video", Icon: PlayCircle, bg: "rgba(255, 59, 48, 0.12)", color: "#D62828" },
-  place: { label: "Place", Icon: MapPin, bg: "rgba(52, 199, 89, 0.14)", color: "#1F8A3D" },
-  product: { label: "Product", Icon: ShoppingBag, bg: "rgba(0, 113, 227, 0.12)", color: "#0071E3" },
+  recipe: { labelKey: "summary.typeRecipe", Icon: ChefHat, bg: "rgba(255, 149, 0, 0.12)", color: "#C96A00" },
+  tech: { labelKey: "summary.typeTech", Icon: Code2, bg: "rgba(88, 86, 214, 0.12)", color: "#4A48B8" },
+  video: { labelKey: "summary.typeVideo", Icon: PlayCircle, bg: "rgba(255, 59, 48, 0.12)", color: "#D62828" },
+  place: { labelKey: "summary.typePlace", Icon: MapPin, bg: "rgba(52, 199, 89, 0.14)", color: "#1F8A3D" },
+  product: { labelKey: "summary.typeProduct", Icon: ShoppingBag, bg: "rgba(0, 113, 227, 0.12)", color: "#0071E3" },
 };
 
 const VALID_TYPES = new Set(["general", "recipe", "tech", "video", "place", "product"]);
@@ -64,7 +65,7 @@ const parseTimestampToSeconds = (ts) => {
   return null;
 };
 
-const renderTextWithTimestamps = (text, youtubeId) => {
+const renderTextWithTimestamps = (text, youtubeId, formatJumpTitle) => {
   const regex = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
   const parts = [];
   let lastIndex = 0;
@@ -82,7 +83,7 @@ const renderTextWithTimestamps = (text, youtubeId) => {
           key={`${match.index}-${ts}`}
           type="button"
           className="timestamp-pill"
-          title={`Jump to ${ts}`}
+          title={formatJumpTitle ? formatJumpTitle(ts) : `Jump to ${ts}`}
           onClick={(e) => {
             e.stopPropagation();
             openSafeUrl(`https://www.youtube.com/watch?v=${youtubeId}&t=${seconds}s`);
@@ -110,12 +111,14 @@ const renderTextWithTimestamps = (text, youtubeId) => {
 
 const SmartSummaryView = ({ scrap, compact = false }) => {
   const { toggleCheckedItem, resetCheckedItems } = useScraps();
+  const { t } = useTranslation();
   const fullSummary = scrap?.fullSummary || "";
   const scrapUrl = scrap?.url;
   const rawContentType = scrap?.contentType;
   const rawCheckedItems = scrap?.checkedItems;
 
   const youtubeId = useMemo(() => extractYoutubeVideoId(scrapUrl), [scrapUrl]);
+  const formatJumpTitle = (ts) => t("summary.jumpTo", { time: ts });
 
   const effectiveType = useMemo(() => {
     if (rawContentType && VALID_TYPES.has(rawContentType) && rawContentType !== "general") {
@@ -136,7 +139,7 @@ const SmartSummaryView = ({ scrap, compact = false }) => {
   if (!fullSummary) {
     return (
       <p style={{ fontSize: "14px", color: "var(--text-secondary)", margin: 0 }}>
-        No summary available.
+        {t("summary.noSummary")}
       </p>
     );
   }
@@ -153,7 +156,7 @@ const SmartSummaryView = ({ scrap, compact = false }) => {
             style={{ background: typeBadge.bg, color: typeBadge.color }}
           >
             <TypeIcon size={12} />
-            <span>{typeBadge.label}</span>
+            <span>{t(typeBadge.labelKey)}</span>
           </span>
           {effectiveType === "recipe" && checkedSet.size > 0 && (
             <button
@@ -163,10 +166,10 @@ const SmartSummaryView = ({ scrap, compact = false }) => {
                 e.stopPropagation();
                 resetCheckedItems(scrap.id);
               }}
-              title="Reset checklist"
+              title={t("summary.resetChecklist")}
             >
               <RotateCcw size={12} />
-              <span>Reset ({checkedSet.size})</span>
+              <span>{t("summary.resetWithCount", { count: checkedSet.size })}</span>
             </button>
           )}
         </div>
@@ -174,7 +177,7 @@ const SmartSummaryView = ({ scrap, compact = false }) => {
 
       {!hasStructuredHeaders ? (
         <p className="smart-summary-prose">
-          {renderTextWithTimestamps(fullSummary, youtubeId)}
+          {renderTextWithTimestamps(fullSummary, youtubeId, formatJumpTitle)}
         </p>
       ) : (
         <div className="smart-summary-sections">
@@ -207,7 +210,7 @@ const SmartSummaryView = ({ scrap, compact = false }) => {
                             {isChecked && <Check size={11} strokeWidth={3} />}
                           </span>
                           <span className="recipe-check-text">
-                            {renderTextWithTimestamps(cleanLine, youtubeId)}
+                            {renderTextWithTimestamps(cleanLine, youtubeId, formatJumpTitle)}
                           </span>
                         </button>
                       );
@@ -217,14 +220,14 @@ const SmartSummaryView = ({ scrap, compact = false }) => {
                       return (
                         <div key={`${sIdx}-${lIdx}`} className="smart-summary-bullet">
                           <span className="smart-summary-bullet-dot">•</span>
-                          <span>{renderTextWithTimestamps(cleanLine, youtubeId)}</span>
+                          <span>{renderTextWithTimestamps(cleanLine, youtubeId, formatJumpTitle)}</span>
                         </div>
                       );
                     }
 
                     return (
                       <p key={`${sIdx}-${lIdx}`} className="smart-summary-line">
-                        {renderTextWithTimestamps(line, youtubeId)}
+                        {renderTextWithTimestamps(line, youtubeId, formatJumpTitle)}
                       </p>
                     );
                   })}

@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { X, Smartphone, Bookmark, Copy, Check, KeyRound, Download } from "lucide-react";
+import { X, Smartphone, Bookmark, Copy, Check, KeyRound, Download, Globe } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n/useTranslation";
 
 const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
   const { user } = useAuth();
+  const { language, setLanguage, t } = useTranslation();
   const bookmarkletRef = useRef(null);
   const [copiedType, setCopiedType] = useState(null);
   const [isStandalone] = useState(() => {
@@ -41,7 +43,7 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
       setCopiedType(type);
       setTimeout(() => setCopiedType(null), 1800);
     } catch {
-      alert("Clipboard permission denied.");
+      alert(t("tools.clipboardDenied"));
     }
   };
 
@@ -70,14 +72,56 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
       >
         <div className="dialog-header">
           <h2 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "-0.02em", margin: 0 }}>
-            Quick Capture &amp; Tools
+            {t("tools.modalTitle")}
           </h2>
-          <button type="button" onClick={onClose} className="icon-circle-btn" aria-label="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-circle-btn"
+            aria-label={t("common.close")}
+          >
             <X size={16} />
           </button>
         </div>
 
-        {/* 1. Mobile Share Sheet (PWA) */}
+        {/* 1. Language Setting (App UI & Default AI Language) */}
+        <div className="tool-card">
+          <div className="tool-card-header">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+              <span className="tool-icon-badge">
+                <Globe size={16} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <h3 className="tool-card-title">{t("tools.languageTitle")}</h3>
+                <p className="tool-card-sub">{t("tools.languageSub")}</p>
+              </div>
+            </div>
+            <div
+              className="language-toggle"
+              role="group"
+              aria-label={t("tools.languageTitle")}
+            >
+              <button
+                type="button"
+                className={`lang-btn ${language === "en" ? "active" : ""}`}
+                aria-pressed={language === "en"}
+                onClick={() => setLanguage("en")}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                className={`lang-btn ${language === "ko" ? "active" : ""}`}
+                aria-pressed={language === "ko"}
+                onClick={() => setLanguage("ko")}
+              >
+                KO
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Mobile Share Sheet (PWA) */}
         <div className="tool-card">
           <div className="tool-card-header">
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -85,25 +129,29 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
                 <Smartphone size={16} />
               </span>
               <div>
-                <h3 className="tool-card-title">Mobile Share Sheet (PWA)</h3>
-                <p className="tool-card-sub">Save links directly from YouTube, Chrome, or social apps</p>
+                <h3 className="tool-card-title">{t("tools.pwaTitle")}</h3>
+                <p className="tool-card-sub">{t("tools.pwaSub")}</p>
               </div>
             </div>
             {isStandalone ? (
-              <span className="tool-status-pill">Installed</span>
+              <span className="tool-status-pill">{t("tools.pwaInstalled")}</span>
             ) : deferredPrompt ? (
               <button type="button" className="tool-action-btn primary" onClick={onInstallPwa}>
                 <Download size={13} />
-                <span>Install App</span>
+                <span>{t("tools.pwaInstallBtn")}</span>
               </button>
             ) : null}
           </div>
           <p className="tool-card-desc">
-            On Android Chrome, tap <strong>Install app</strong> (or menu → Add to Home screen) to register <strong>Oh My Scrap</strong> in your system Share menu. On desktop Chrome/Edge, click the install icon in the address bar.
+            {t("tools.pwaDescBefore")}
+            <strong>{t("tools.pwaDescInstall")}</strong>
+            {t("tools.pwaDescMiddle")}
+            <strong>Oh My Scrap</strong>
+            {t("tools.pwaDescAfter")}
           </p>
         </div>
 
-        {/* 2. Desktop Bookmarklet */}
+        {/* 3. Desktop Bookmarklet */}
         <div className="tool-card">
           <div className="tool-card-header">
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -111,8 +159,8 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
                 <Bookmark size={16} />
               </span>
               <div>
-                <h3 className="tool-card-title">Desktop 1-Click Bookmarklet</h3>
-                <p className="tool-card-sub">Drag the button below to your browser bookmarks bar</p>
+                <h3 className="tool-card-title">{t("tools.bookmarkletTitle")}</h3>
+                <p className="tool-card-sub">{t("tools.bookmarkletSub")}</p>
               </div>
             </div>
           </div>
@@ -121,10 +169,10 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
               ref={bookmarkletRef}
               onClick={(e) => {
                 e.preventDefault();
-                alert("Drag this pill to your browser bookmarks bar, or use Copy Code to create a bookmark manually.");
+                alert(t("tools.bookmarkletAlert"));
               }}
               className="bookmarklet-pill"
-              title="Drag to bookmarks bar"
+              title={t("tools.bookmarkletDragTitle")}
             >
               + Oh My Scrap
             </a>
@@ -134,12 +182,12 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
               onClick={() => handleCopy(bookmarkletCode, "bookmarklet")}
             >
               {copiedType === "bookmarklet" ? <Check size={13} /> : <Copy size={13} />}
-              <span>{copiedType === "bookmarklet" ? "Copied!" : "Copy Code"}</span>
+              <span>{copiedType === "bookmarklet" ? t("common.copied") : t("tools.copyCode")}</span>
             </button>
           </div>
         </div>
 
-        {/* 3. Personal UID (External Integrations) */}
+        {/* 4. Personal UID (External Integrations) */}
         <div className="tool-card">
           <div className="tool-card-header">
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -147,8 +195,8 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
                 <KeyRound size={16} />
               </span>
               <div>
-                <h3 className="tool-card-title">Personal UID</h3>
-                <p className="tool-card-sub">Used for external integrations (e.g., Telegram GAS bot)</p>
+                <h3 className="tool-card-title">{t("tools.uidTitle")}</h3>
+                <p className="tool-card-sub">{t("tools.uidSub")}</p>
               </div>
             </div>
             <button
@@ -158,7 +206,7 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
               disabled={!user?.uid}
             >
               {copiedType === "uid" ? <Check size={13} /> : <Copy size={13} />}
-              <span>{copiedType === "uid" ? "Copied!" : "Copy UID"}</span>
+              <span>{copiedType === "uid" ? t("common.copied") : t("tools.copyUid")}</span>
             </button>
           </div>
           {maskedUid && (

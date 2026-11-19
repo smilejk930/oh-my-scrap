@@ -11,6 +11,7 @@ import {
   extractYoutubeVideoId,
 } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
+import { useTranslation } from "../i18n/useTranslation";
 import ReAnalyzeDialog from "./ReAnalyzeDialog";
 import {
   X,
@@ -26,10 +27,12 @@ import { motion as Motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 
 const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
-  const { user, preferredLanguage, useAi, updateLanguage, updateUseAi } = useAuth();
+  const { user, preferredLanguage, useAi, updateUseAi } = useAuth();
   const { findDuplicateScrap } = useScraps();
+  const { t } = useTranslation();
 
   const [url, setUrl] = useState(initialUrl);
+  const [localLang, setLocalLang] = useState(preferredLanguage);
   const [allowDuplicate, setAllowDuplicate] = useState(false);
   const [clipboardSuggestion, setClipboardSuggestion] = useState(null);
   const [reAnalyzeTarget, setReAnalyzeTarget] = useState(null);
@@ -136,8 +139,8 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
       const isYoutubeInput = Boolean(extractYoutubeVideoId(url));
       setStatus(
         isYoutubeInput && useAi
-          ? "Checking video & transcript..."
-          : "Fetching URL information..."
+          ? t("dialog.statusCheckingVideo")
+          : t("dialog.statusFetchingUrl")
       );
       const {
         title,
@@ -148,8 +151,9 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
         skipReason,
         isYoutubeVideo,
         useVideoMultimodal,
+        lowResVideo,
         contentTypeHint,
-      } = await scrapeUrl(url, { checkDuration: useAi, language: preferredLanguage });
+      } = await scrapeUrl(url, { checkDuration: useAi, language: localLang });
 
       let analysis;
       if (!useAi) {
@@ -162,29 +166,29 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
       } else if (skipAi) {
         setStatus(
           isYoutubeVideo
-            ? "No captions found for long video. Saving basic info..."
-            : "Content restricted. Saving basic link info..."
+            ? t("dialog.statusNoCaptions")
+            : t("dialog.statusContentRestricted")
         );
         analysis = {
           title,
           tags: generateBasicTags(url, isYoutubeVideo),
           contentType: contentTypeHint || (isYoutubeVideo ? "video" : "general"),
-          fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : ""),
+          fullSummary: skipReason || (isYoutubeVideo ? t("dialog.statusSkippedAi") : ""),
         };
         await new Promise((resolve) => setTimeout(resolve, 800));
       } else {
         setStatus(
           useVideoMultimodal
-            ? "AI is watching the video..."
+            ? t("dialog.statusAiWatching")
             : isYoutubeVideo
-              ? "AI is summarizing video transcript..."
-              : "AI is analyzing content..."
+              ? t("dialog.statusAiSummarizingTranscript")
+              : t("dialog.statusAiAnalyzing")
         );
         analysis = await analyzeContent(
           content,
-          preferredLanguage,
+          localLang,
           useVideoMultimodal ? url : null,
-          { contentTypeHint }
+          { contentTypeHint, lowResVideo }
         );
       }
 
@@ -205,7 +209,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
       };
 
       setPreview(newScrap);
-      setStatus("Analysis complete!");
+      setStatus(t("dialog.statusAnalysisComplete"));
 
       await addDoc(collection(db, "scraps"), newScrap);
 
@@ -248,7 +252,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
           {/* Header */}
           <div className="dialog-header">
             <h2 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "-0.02em" }}>
-              Add Scrap
+              {t("dialog.addScrapTitle")}
             </h2>
             <button
               type="button"
@@ -259,7 +263,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
                 cursor: loading ? "default" : "pointer",
                 opacity: loading ? 0.4 : 1,
               }}
-              aria-label="Close"
+              aria-label={t("common.close")}
             >
               <X size={16} />
             </button>
@@ -267,7 +271,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
 
           {/* Controls: AI toggle + Language toggle */}
           <div className="dialog-controls">
-            <div className="language-toggle">
+            <div className="language-toggle" title={t("dialog.aiToggleTooltip")}>
               <button
                 type="button"
                 className={`lang-btn ${!useAi ? "active" : ""}`}
@@ -285,19 +289,19 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
                 AI
               </button>
             </div>
-            <div className="language-toggle">
+            <div className="language-toggle" title={t("dialog.aiLangTooltip")}>
               <button
                 type="button"
-                className={`lang-btn ${preferredLanguage === "en" ? "active" : ""}`}
-                onClick={() => updateLanguage("en")}
+                className={`lang-btn ${localLang === "en" ? "active" : ""}`}
+                onClick={() => setLocalLang("en")}
                 disabled={loading}
               >
                 EN
               </button>
               <button
                 type="button"
-                className={`lang-btn ${preferredLanguage === "ko" ? "active" : ""}`}
-                onClick={() => updateLanguage("ko")}
+                className={`lang-btn ${localLang === "ko" ? "active" : ""}`}
+                onClick={() => setLocalLang("ko")}
                 disabled={loading}
               >
                 KO
@@ -317,7 +321,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
             >
               <Clipboard size={13} style={{ flexShrink: 0 }} />
               <span className="clipboard-chip-text">
-                From clipboard: {clipboardSuggestion}
+                {t("dialog.fromClipboard", { url: clipboardSuggestion })}
               </span>
             </button>
           )}
@@ -329,10 +333,11 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
                 <AlertCircle size={16} style={{ flexShrink: 0, color: "#C96A00" }} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="duplicate-banner-heading">
-                    Already saved{" "}
                     {duplicateScrap.createdAt?.toDate
-                      ? `on ${format(duplicateScrap.createdAt.toDate(), "yy.MM.dd")}`
-                      : "in your archive"}
+                      ? t("dialog.alreadySavedOn", {
+                          date: format(duplicateScrap.createdAt.toDate(), "yy.MM.dd"),
+                        })
+                      : t("dialog.alreadySavedArchive")}
                   </div>
                   <div className="duplicate-banner-title">
                     {duplicateScrap.title || duplicateScrap.url}
@@ -357,7 +362,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
                   }}
                 >
                   <ExternalLink size={12} />
-                  <span>View Existing</span>
+                  <span>{t("dialog.viewExisting")}</span>
                 </button>
                 <button
                   type="button"
@@ -365,14 +370,14 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
                   onClick={() => setReAnalyzeTarget(duplicateScrap)}
                 >
                   <RefreshCw size={12} />
-                  <span>Re-analyze</span>
+                  <span>{t("common.reAnalyze")}</span>
                 </button>
                 <button
                   type="button"
                   className="dup-btn"
                   onClick={() => setAllowDuplicate(true)}
                 >
-                  Save Anyway
+                  {t("dialog.saveAnyway")}
                 </button>
               </div>
             </div>
@@ -434,7 +439,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
                 </div>
                 <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "5px", color: "#34C759" }}>
                   <CheckCircle size={16} />
-                  <span style={{ fontSize: "13px", fontWeight: "600" }}>Saved successfully!</span>
+                  <span style={{ fontSize: "13px", fontWeight: "600" }}>{t("dialog.savedSuccess")}</span>
                 </div>
               </Motion.div>
             )}
@@ -456,7 +461,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
               type="button"
               onClick={handlePaste}
               disabled={loading}
-              title="Paste from clipboard"
+              title={t("dialog.pasteFromClipboard")}
               style={{
                 flexShrink: 0,
                 width: "46px",

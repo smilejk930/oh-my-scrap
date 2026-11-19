@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useScraps } from "../context/ScrapContext";
+import { useTranslation } from "../i18n/useTranslation";
 import ScrapItem from "./ScrapItem";
 import ScrapDetailPane from "./ScrapDetailPane";
 import RediscoverBanner from "./RediscoverBanner";
@@ -13,17 +14,21 @@ import {
   Plus,
   Sparkles,
   Pin,
-  CircleDot,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { subDays, startOfDay } from "date-fns";
 
 const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSelectedScrapId }) => {
   const { scraps, loading } = useScraps();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("all");
   const [selectedTag, setSelectedTag] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'pinned' | 'unread'
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'pinned'
   const [showAllTags, setShowAllTags] = useState(false);
   const [isAskOpen, setIsAskOpen] = useState(false);
   const [mobileExpandedId, setMobileExpandedId] = useState(null);
@@ -32,7 +37,9 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
     typeof window !== "undefined" ? window.innerWidth >= 768 : true
   );
   const searchHeaderRef = useRef(null);
+  const tagBarRef = useRef(null);
   const [detailPaneTop, setDetailPaneTop] = useState(140);
+  const [tagScrollState, setTagScrollState] = useState({ canLeft: false, canRight: false });
 
   useEffect(() => {
     const update = () => {
@@ -41,10 +48,21 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
         setDetailPaneTop(searchHeaderRef.current.offsetHeight + 20);
       }
     };
-    update();
+    const rafId = requestAnimationFrame(update);
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [scraps.length, showAllTags]);
+
+    let observer;
+    if (typeof ResizeObserver !== "undefined" && searchHeaderRef.current) {
+      observer = new ResizeObserver(update);
+      observer.observe(searchHeaderRef.current);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [loading, scraps.length, showAllTags]);
 
   const selectedScrap = useMemo(
     () => scraps.find((s) => s.id === selectedScrapId) || null,
@@ -74,12 +92,53 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
     return [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [scraps]);
 
+  // PC 마우스 휠 가로 스크롤 및 좌/우 오버플로 화살표 상태 동기화
+  useEffect(() => {
+    const el = tagBarRef.current;
+    if (!el) return undefined;
+
+    const updateScrollState = () => {
+      if (showAllTags) {
+        setTagScrollState((prev) =>
+          prev.canLeft || prev.canRight ? { canLeft: false, canRight: false } : prev
+        );
+        return;
+      }
+      const canLeft = el.scrollLeft > 4;
+      const canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+      setTagScrollState((prev) =>
+        prev.canLeft === canLeft && prev.canRight === canRight ? prev : { canLeft, canRight }
+      );
+    };
+
+    const handleWheel = (e) => {
+      if (showAllTags || el.scrollWidth <= el.clientWidth) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    const rafId = requestAnimationFrame(updateScrollState);
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    el.addEventListener("wheel", handleWheel, { passive: false });
+
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateScrollState);
+      observer.observe(el);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      el.removeEventListener("scroll", updateScrollState);
+      el.removeEventListener("wheel", handleWheel);
+      observer?.disconnect();
+    };
+  }, [loading, tagStats.length, showAllTags, isDesktop]);
+
   const pinnedCount = useMemo(
     () => scraps.filter((s) => Boolean(s.isPinned)).length,
-    [scraps]
-  );
-  const unreadCount = useMemo(
-    () => scraps.filter((s) => s.isRead !== true).length,
     [scraps]
   );
 
@@ -106,9 +165,8 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
         if (!hasTag) return false;
       }
 
-      // 3. 상태 필터 (핀 고정 / 안 읽음)
+      // 3. 상태 필터 (핀 고정)
       if (statusFilter === "pinned" && !scrap.isPinned) return false;
-      if (statusFilter === "unread" && scrap.isRead === true) return false;
 
       // 4. 날짜 필터
       if (filterDate !== "all") {
@@ -164,7 +222,6 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
     );
   }
 
-  const visibleTags = showAllTags ? tagStats : tagStats.slice(0, 12);
   const isDefaultView =
     !searchTerm.trim() && !selectedTag && filterDate === "all" && statusFilter === "all";
 
@@ -190,7 +247,7 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
           />
           <input
             className="search-input-with-actions"
-            placeholder="Search title, tags, summary, or note..."
+            placeholder={t("list.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -200,8 +257,8 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
                 type="button"
                 className="search-clear-btn"
                 onClick={() => setSearchTerm("")}
-                title="Clear search"
-                aria-label="Clear search"
+                title={t("list.clearSearch")}
+                aria-label={t("list.clearSearch")}
               >
                 <X size={14} />
               </button>
@@ -210,10 +267,10 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
               type="button"
               className="ask-ai-btn"
               onClick={() => setIsAskOpen(true)}
-              title="Ask AI across your scraps"
+              title={t("list.askAiTitle")}
             >
               <Sparkles size={14} />
-              <span>Ask AI</span>
+              <span>{t("list.askAi")}</span>
             </button>
           </div>
         </div>
@@ -221,14 +278,20 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
         {/* Row 1: 날짜 + 상태 필터 + 뷰 전환/추가 */}
         <div className="flex-between" style={{ gap: "10px" }}>
           <div style={{ display: "flex", gap: "6px", overflowX: "auto", alignItems: "center", paddingBottom: "2px" }}>
-            {["all", "today", "week", "month", "older"].map((f) => (
+            {[
+              { key: "all", labelKey: "list.filterAll" },
+              { key: "today", labelKey: "list.filterToday" },
+              { key: "week", labelKey: "list.filterWeek" },
+              { key: "month", labelKey: "list.filterMonth" },
+              { key: "older", labelKey: "list.filterOlder" },
+            ].map((f) => (
               <button
-                key={f}
+                key={f.key}
                 type="button"
-                className={`filter-pill ${filterDate === f ? "active" : ""}`}
-                onClick={() => setFilterDate(f)}
+                className={`filter-pill ${filterDate === f.key ? "active" : ""}`}
+                onClick={() => setFilterDate(f.key)}
               >
-                {f === "all" ? "All" : f === "today" ? "Today" : f === "week" ? "Week" : f === "month" ? "Month" : "Older"}
+                {t(f.labelKey)}
               </button>
             ))}
 
@@ -240,17 +303,8 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
               onClick={() => setStatusFilter((prev) => (prev === "pinned" ? "all" : "pinned"))}
             >
               <Pin size={12} />
-              <span>Pinned</span>
+              <span>{t("common.pinned")}</span>
               {pinnedCount > 0 && <span className="pill-count">{pinnedCount}</span>}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill icon ${statusFilter === "unread" ? "active" : ""}`}
-              onClick={() => setStatusFilter((prev) => (prev === "unread" ? "all" : "unread"))}
-            >
-              <CircleDot size={12} />
-              <span>Unread</span>
-              {unreadCount > 0 && <span className="pill-count">{unreadCount}</span>}
             </button>
           </div>
 
@@ -260,7 +314,7 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
                 type="button"
                 onClick={() => setViewMode("list")}
                 style={{ background: viewMode === "list" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
-                title="List view"
+                title={t("nav.listView")}
               >
                 <ListIcon size={18} color={viewMode === "list" ? "#0071E3" : "#86868B"} />
               </button>
@@ -268,7 +322,7 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
                 type="button"
                 onClick={() => setViewMode("card")}
                 style={{ background: viewMode === "card" ? "white" : "none", border: "none", padding: "4px", borderRadius: "6px", cursor: "pointer", display: "flex" }}
-                title="Card view"
+                title={t("nav.cardView")}
               >
                 <LayoutGrid size={18} color={viewMode === "card" ? "#0071E3" : "#86868B"} />
               </button>
@@ -292,46 +346,89 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
                   boxShadow: "0 4px 14px rgba(0,113,227,0.3)",
                   flexShrink: 0,
                 }}
-                title="Add Scrap"
+                title={t("nav.addScrap")}
               >
                 <Plus size={16} />
-                <span>Add</span>
+                <span>{t("nav.add")}</span>
               </motion.button>
             )}
           </div>
         </div>
 
-        {/* Row 2: 클릭형 태그 클라우드 필터 바 */}
+        {/* Row 2: 클릭형 태그 클라우드 필터 바 (PC 화살표·휠 스크롤 & 전체 펼치기 지원) */}
         {tagStats.length > 0 && (
-          <div className="tag-filter-bar">
-            <button
-              type="button"
-              className={`tag-chip ${!selectedTag ? "active" : ""}`}
-              onClick={() => setSelectedTag(null)}
-            >
-              All Tags
-            </button>
-            {visibleTags.map((t) => {
-              const isActive = selectedTag?.toLowerCase() === t.lower;
-              return (
+          <div className="tag-filter-wrapper">
+            <div className="tag-filter-track">
+              {!showAllTags && tagScrollState.canLeft && (
                 <button
-                  key={t.lower}
                   type="button"
-                  className={`tag-chip ${isActive ? "active" : ""}`}
-                  onClick={() => handleTagClick(t.label)}
+                  className="tag-scroll-btn left desktop-only"
+                  onClick={() => tagBarRef.current?.scrollBy({ left: -260, behavior: "smooth" })}
+                  title={t("list.scrollTagsLeft")}
+                  aria-label={t("list.scrollTagsLeft")}
                 >
-                  <span>#{t.label}</span>
-                  <span className="tag-chip-count">{t.count}</span>
+                  <ChevronLeft size={15} />
                 </button>
-              );
-            })}
-            {tagStats.length > 12 && (
+              )}
+
+              <div
+                ref={tagBarRef}
+                className={`tag-filter-bar ${showAllTags ? "expanded" : ""}`}
+              >
+                <button
+                  type="button"
+                  className={`tag-chip ${!selectedTag ? "active" : ""}`}
+                  onClick={() => setSelectedTag(null)}
+                >
+                  {t("list.allTags")}
+                </button>
+                {tagStats.map((tItem) => {
+                  const isActive = selectedTag?.toLowerCase() === tItem.lower;
+                  return (
+                    <button
+                      key={tItem.lower}
+                      type="button"
+                      className={`tag-chip ${isActive ? "active" : ""}`}
+                      onClick={() => handleTagClick(tItem.label)}
+                    >
+                      <span>#{tItem.label}</span>
+                      <span className="tag-chip-count">{tItem.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {!showAllTags && tagScrollState.canRight && (
+                <button
+                  type="button"
+                  className="tag-scroll-btn right desktop-only"
+                  onClick={() => tagBarRef.current?.scrollBy({ left: 260, behavior: "smooth" })}
+                  title={t("list.scrollTagsRight")}
+                  aria-label={t("list.scrollTagsRight")}
+                >
+                  <ChevronRight size={15} />
+                </button>
+              )}
+            </div>
+
+            {(tagScrollState.canLeft || tagScrollState.canRight || showAllTags) && (
               <button
                 type="button"
-                className="tag-chip tag-chip-more"
+                className={`tag-expand-btn ${showAllTags ? "active" : ""}`}
                 onClick={() => setShowAllTags((prev) => !prev)}
+                title={showAllTags ? t("list.collapseTags") : t("list.showAllTags")}
               >
-                {showAllTags ? "Less" : `+${tagStats.length - 12} more`}
+                {showAllTags ? (
+                  <>
+                    <ChevronUp size={13} />
+                    <span>{t("list.less")}</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={13} />
+                    <span>{t("list.allWithCount", { count: tagStats.length })}</span>
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -345,7 +442,7 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
 
       {filteredScraps.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 0", color: "#86868B" }}>
-          No scraps found.
+          {t("list.empty")}
         </div>
       ) : (
         <div className="scrap-container" style={{ display: isDesktop ? "flex" : "block", gap: "20px" }}>

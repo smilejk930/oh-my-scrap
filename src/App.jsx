@@ -7,6 +7,7 @@ import QuickToolsModal from "./components/QuickToolsModal";
 import { extractFirstUrl } from "./services/scraper";
 import { LogOut, Plus, List, LayoutGrid, SlidersHorizontal, Share2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "./i18n/useTranslation";
 
 const SHARE_STORAGE_KEY = "oms_pending_share_url";
 
@@ -76,6 +77,7 @@ const UserAvatar = ({ user, size = 36 }) => {
 
 const MainApp = () => {
   const { user, login, logout } = useAuth();
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState("list");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -179,14 +181,14 @@ const MainApp = () => {
                 Oh My Scrap
               </h1>
               <p style={{ fontSize: "clamp(20px, 2.5vw, 24px)", fontWeight: "300", color: "var(--text-secondary)", letterSpacing: "0.025em", margin: 0 }}>
-                Design your knowledge.
+                {t("auth.tagline")}
               </p>
             </div>
 
             {pendingShareUrl && (
               <div className="login-share-notice">
                 <Share2 size={15} style={{ flexShrink: 0, color: "var(--accent-color)" }} />
-                <span>Shared link ready — sign in to save</span>
+                <span>{t("auth.sharedLinkReady")}</span>
               </div>
             )}
 
@@ -198,7 +200,7 @@ const MainApp = () => {
                     await login();
                   } catch (error) {
                     console.error("Login failed:", error);
-                    alert("An error occurred during login. Please disable pop-up blockers or ensure you are using the production URL.");
+                    alert(t("auth.loginError"));
                   }
                 }}
                 style={{
@@ -221,13 +223,13 @@ const MainApp = () => {
                   </svg>
                 </div>
                 <span style={{ fontSize: "14px", fontWeight: "600", letterSpacing: "0.025em", color: "var(--text-primary)" }}>
-                  Sign in with Google
+                  {t("auth.signInGoogle")}
                 </span>
               </button>
 
               <div style={{ marginTop: "32px" }}>
                 <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--text-secondary)", opacity: 0.6, fontWeight: "500", margin: 0 }}>
-                  Secure Access Archive
+                  {t("auth.secureArchive")}
                 </p>
                 <p style={{ fontSize: "11px", letterSpacing: "0.05em", color: "var(--text-secondary)", opacity: 0.6, fontWeight: "500", margin: "8px 0 0 0" }}>
                   Created by smilejk930
@@ -264,8 +266,8 @@ const MainApp = () => {
                   color: "#3A3A3C",
                   cursor: "pointer"
                 }}
-                title="Quick Tools & PWA"
-                aria-label="Quick Tools and PWA"
+                title={t("nav.toolsMobileTitle")}
+                aria-label={t("nav.toolsMobileTitle")}
               >
                 <SlidersHorizontal size={18} />
               </motion.button>
@@ -284,7 +286,8 @@ const MainApp = () => {
                   color: "#3A3A3C",
                   cursor: "pointer"
                 }}
-                title="Sign Out"
+                title={t("auth.signOut")}
+                aria-label={t("auth.signOut")}
               >
                 <LogOut size={18} />
               </motion.button>
@@ -308,10 +311,10 @@ const MainApp = () => {
                   gap: "7px",
                   fontSize: "13px"
                 }}
-                title="Quick Capture, PWA & Personal UID"
+                title={t("nav.toolsDesktopTitle")}
               >
                 <SlidersHorizontal size={15} />
-                <span>Tools</span>
+                <span>{t("nav.tools")}</span>
               </button>
               <button
                 type="button"
@@ -325,10 +328,10 @@ const MainApp = () => {
                   gap: "8px",
                   fontSize: "13px"
                 }}
-                title="Sign Out"
+                title={t("auth.signOut")}
               >
                 <LogOut size={16} />
-                <span>Sign Out</span>
+                <span>{t("auth.signOut")}</span>
               </button>
               <UserAvatar user={user} />
             </div>
@@ -367,14 +370,14 @@ const MainApp = () => {
           <button
             className={`lang-btn ${viewMode === "list" ? "active" : ""}`}
             onClick={() => setViewMode("list")}
-            title="List view"
+            title={t("nav.listView")}
           >
             <List size={14} />
           </button>
           <button
             className={`lang-btn ${viewMode === "card" ? "active" : ""}`}
             onClick={() => setViewMode("card")}
-            title="Card view"
+            title={t("nav.cardView")}
           >
             <LayoutGrid size={14} />
           </button>
@@ -400,7 +403,7 @@ const MainApp = () => {
           }}
         >
           <Plus size={16} />
-          <span>Add</span>
+          <span>{t("nav.add")}</span>
         </motion.button>
       </nav>
 

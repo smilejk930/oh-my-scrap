@@ -11,9 +11,11 @@ import {
 } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n/useTranslation";
 
 const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
   const { preferredLanguage, useAi } = useAuth();
+  const { t } = useTranslation();
   const [localUseAi, setLocalUseAi] = useState(useAi);
   const [localLang, setLocalLang] = useState(preferredLanguage);
   const [analyzing, setAnalyzing] = useState(false);
@@ -36,8 +38,8 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
     const isYoutubeInput = Boolean(extractYoutubeVideoId(scrap.url));
     setStatus(
       isYoutubeInput && localUseAi
-        ? "Checking video & transcript..."
-        : "Fetching URL information..."
+        ? t("dialog.statusCheckingVideo")
+        : t("dialog.statusFetchingUrl")
     );
 
     try {
@@ -50,6 +52,7 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
         skipReason,
         isYoutubeVideo,
         useVideoMultimodal,
+        lowResVideo,
         contentTypeHint,
       } = await scrapeUrl(scrap.url, { checkDuration: localUseAi, language: localLang });
 
@@ -64,29 +67,29 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
       } else if (skipAi) {
         setStatus(
           isYoutubeVideo
-            ? "No captions found for long video. Saving basic info..."
-            : "Content restricted. Saving basic link info..."
+            ? t("dialog.statusNoCaptions")
+            : t("dialog.statusContentRestricted")
         );
         analysis = {
           title,
           tags: generateBasicTags(scrap.url, isYoutubeVideo),
           contentType: contentTypeHint || (isYoutubeVideo ? "video" : "general"),
-          fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : ""),
+          fullSummary: skipReason || (isYoutubeVideo ? t("dialog.statusSkippedAi") : ""),
         };
         await new Promise((resolve) => setTimeout(resolve, 800));
       } else {
         setStatus(
           useVideoMultimodal
-            ? "AI is watching the video..."
+            ? t("dialog.statusAiWatching")
             : isYoutubeVideo
-              ? "AI is summarizing video transcript..."
-              : "AI is analyzing content..."
+              ? t("dialog.statusAiSummarizingTranscript")
+              : t("dialog.statusAiAnalyzing")
         );
         analysis = await analyzeContent(
           content,
           localLang,
           useVideoMultimodal ? scrap.url : null,
-          { contentTypeHint }
+          { contentTypeHint, lowResVideo }
         );
       }
 
@@ -104,7 +107,7 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
 
       await updateDoc(doc(db, "scraps", scrap.id), updatePayload);
 
-      setStatus("Updated successfully!");
+      setStatus(t("dialog.statusUpdated"));
 
       await new Promise((resolve) => setTimeout(resolve, 900));
       if (onSuccess) {
@@ -143,7 +146,7 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
         {/* Header */}
         <div className="dialog-header">
           <h2 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "-0.02em" }}>
-            Re-Analyze
+            {t("dialog.reAnalyzeTitle")}
           </h2>
           <button
             type="button"
@@ -154,7 +157,7 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
               cursor: analyzing ? "default" : "pointer",
               opacity: analyzing ? 0.4 : 1,
             }}
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <X size={16} />
           </button>
@@ -176,7 +179,7 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
 
         {/* Controls: AI toggle + Language toggle */}
         <div className="dialog-controls">
-          <div className="language-toggle">
+          <div className="language-toggle" title={t("dialog.aiToggleTooltip")}>
             <button
               type="button"
               className={`lang-btn ${!localUseAi ? "active" : ""}`}
@@ -194,7 +197,7 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
               AI
             </button>
           </div>
-          <div className="language-toggle">
+          <div className="language-toggle" title={t("dialog.aiLangTooltip")}>
             <button
               type="button"
               className={`lang-btn ${localLang === "en" ? "active" : ""}`}
@@ -250,10 +253,10 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
           {analyzing ? (
             <>
               <Loader2 className="animate-spin" size={18} />
-              Analyzing...
+              {t("dialog.analyzing")}
             </>
           ) : (
-            "Analyze"
+            t("dialog.analyze")
           )}
         </button>
       </motion.div>

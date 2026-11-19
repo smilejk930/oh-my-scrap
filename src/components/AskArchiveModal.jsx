@@ -5,10 +5,12 @@ import { format } from "date-fns";
 import { useScraps } from "../context/ScrapContext";
 import { useAuth } from "../context/AuthContext";
 import { askMyScraps } from "../services/gemini";
+import { useTranslation } from "../i18n/useTranslation";
 
 const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
   const { scraps } = useScraps();
   const { preferredLanguage } = useAuth();
+  const { t } = useTranslation();
   const [input, setInput] = useState(initialQuestion);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,28 +27,28 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
   const starterQuestions = useMemo(() => {
     const suggestions = [];
     const hasRecipe = scraps.some(
-      (s) => s.contentType === "recipe" || s.tags?.some((t) => /recipe|레시피/i.test(t))
+      (s) => s.contentType === "recipe" || s.tags?.some((tag) => /recipe|레시피/i.test(tag))
     );
     if (hasRecipe) {
-      suggestions.push("What recipes have I saved?");
+      suggestions.push(t("ask.starterRecipes"));
     }
 
     const tagCounts = new Map();
     for (const s of scraps) {
       for (const rawTag of s.tags || []) {
-        const t = rawTag?.trim();
-        if (!t) continue;
-        tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+        const cleanTag = rawTag?.trim();
+        if (!cleanTag) continue;
+        tagCounts.set(cleanTag, (tagCounts.get(cleanTag) || 0) + 1);
       }
     }
     const topTag = [...tagCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
     if (topTag) {
-      suggestions.push(`Summarize my #${topTag} scraps`);
+      suggestions.push(t("ask.starterTopTag", { tag: topTag }));
     }
 
-    suggestions.push("What did I save this week?");
+    suggestions.push(t("ask.starterThisWeek"));
     return suggestions.slice(0, 3);
-  }, [scraps]);
+  }, [scraps, t]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -94,14 +96,14 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
           {
             id: `e-${Date.now()}`,
             role: "assistant",
-            error: err.message || "Failed to query your archive.",
+            error: err.message || t("ask.queryFailed"),
           },
         ]);
       } finally {
         setLoading(false);
       }
     },
-    [loading, scraps, preferredLanguage, scrapMap]
+    [loading, scraps, preferredLanguage, scrapMap, t]
   );
 
   const handleFormSubmit = (e) => {
@@ -134,10 +136,10 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
             </span>
             <div>
               <h2 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "-0.02em", margin: 0 }}>
-                Ask My Scraps
+                {t("ask.title")}
               </h2>
               <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0 }}>
-                Search &amp; synthesize across {scraps.length} saved items
+                {t("ask.subtitle", { count: scraps.length })}
               </p>
             </div>
           </div>
@@ -146,7 +148,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
             onClick={onClose}
             disabled={loading}
             className="icon-circle-btn"
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <X size={16} />
           </button>
@@ -156,7 +158,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
           {messages.length === 0 ? (
             <div className="ask-empty-state">
               <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "12px" }}>
-                Ask anything about your saved links, recipes, videos, or personal notes.
+                {t("ask.emptyPrompt")}
               </p>
               <div className="ask-starter-chips">
                 {starterQuestions.map((q) => (
@@ -177,7 +179,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
               <div key={msg.id} className={`ask-bubble-row ${msg.role}`}>
                 <div className={`ask-bubble ${msg.role} ${msg.error ? "error" : ""}`}>
                   {msg.error ? (
-                    <span>Error: {msg.error}</span>
+                    <span>{t("common.errorPrefix", { message: msg.error })}</span>
                   ) : (
                     <p style={{ margin: 0, whiteSpace: "pre-wrap", color: "inherit", fontSize: "14px", lineHeight: 1.6 }}>
                       {msg.text}
@@ -186,7 +188,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
 
                   {msg.matchedScraps?.length > 0 && (
                     <div className="ask-sources-block">
-                      <div className="ask-sources-label">Sources</div>
+                      <div className="ask-sources-label">{t("ask.sources")}</div>
                       <div className="ask-sources-grid">
                         {msg.matchedScraps.map((s) => {
                           const d = s.createdAt?.toDate ? format(s.createdAt.toDate(), "yy.MM.dd") : "";
@@ -208,7 +210,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
                                 }}
                               />
                               <div className="ask-source-info">
-                                <span className="ask-source-title">{s.title || "Unanalyzed Scrap"}</span>
+                                <span className="ask-source-title">{s.title || t("common.unanalyzedScrap")}</span>
                                 {d && <span className="ask-source-date">{d}</span>}
                               </div>
                               <ExternalLink size={12} style={{ flexShrink: 0, opacity: 0.5 }} />
@@ -244,7 +246,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
               <div className="ask-bubble assistant" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <Loader2 className="animate-spin" size={16} color="var(--accent-color)" />
                 <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  Searching your archive...
+                  {t("ask.searching")}
                 </span>
               </div>
             </div>
@@ -255,7 +257,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
         <form className="dialog-url-row" onSubmit={handleFormSubmit}>
           <input
             type="text"
-            placeholder="Ask a question (EN or KO)..."
+            placeholder={t("ask.inputPlaceholder")}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
@@ -265,7 +267,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
             type="submit"
             disabled={loading || !input.trim()}
             className="ask-send-btn"
-            aria-label="Send question"
+            aria-label={t("ask.sendQuestion")}
             style={{
               background: input.trim() && !loading ? "var(--accent-color)" : "rgba(0,0,0,0.06)",
               color: input.trim() && !loading ? "#fff" : "#A1A1A6",

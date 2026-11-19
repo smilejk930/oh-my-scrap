@@ -1,6 +1,8 @@
 import { getProxyBaseUrl, getAuthHeaders, fetchWithTimeout } from "./scraper";
+import { translate } from "../i18n/translations";
 
 const ANALYZE_TIMEOUT_MS = 60000;
+const VIDEO_ANALYZE_TIMEOUT_MS = 90000;
 const ASK_TIMEOUT_MS = 35000;
 
 /**
@@ -8,7 +10,7 @@ const ASK_TIMEOUT_MS = 35000;
  * @param {string} content - URL에서 추출된 텍스트 내용 (videoUrl이 있으면 보조 컨텍스트로 활용)
  * @param {string} language - 분석 결과 언어 ('en' or 'ko')
  * @param {string|null} videoUrl - YouTube 영상 URL. 지정 시 Gemini의 비디오 이해 기능으로 영상 자체를 분석.
- * @param {{ contentTypeHint?: string | null }} [options]
+ * @param {{ contentTypeHint?: string | null, lowResVideo?: boolean }} [options]
  * @returns {Promise<{title: string, tags: string[], contentType: string, fullSummary: string}>}
  */
 export const analyzeContent = async (content, language = "en", videoUrl = null, options = {}) => {
@@ -31,9 +33,10 @@ export const analyzeContent = async (content, language = "en", videoUrl = null, 
           language,
           videoUrl,
           contentTypeHint: options?.contentTypeHint || null,
+          lowResVideo: Boolean(options?.lowResVideo),
         }),
       },
-      ANALYZE_TIMEOUT_MS
+      videoUrl ? VIDEO_ANALYZE_TIMEOUT_MS : ANALYZE_TIMEOUT_MS
     );
 
     if (!response.ok) {
@@ -61,10 +64,12 @@ export const analyzeContent = async (content, language = "en", videoUrl = null, 
   } catch (error) {
     console.error("Gemini Analysis completely failed:", error);
     return {
-      title: "Analysis Failed (Manual entry needed)",
-      tags: ["Misc"],
+      title: translate(language, "service.analysisFailedTitle"),
+      tags: [translate(language, "service.analysisFailedTag")],
       contentType: "general",
-      fullSummary: `Analysis completely failed after retries. Reason: ${error.message?.substring(0, 100) || "Check connection or content."}`
+      fullSummary: translate(language, "service.analysisFailedSummary", {
+        reason: error.message?.substring(0, 100) || translate(language, "service.checkConnection"),
+      }),
     };
   }
 };
@@ -79,7 +84,7 @@ export const analyzeContent = async (content, language = "en", videoUrl = null, 
 export const askMyScraps = async (question, scraps = [], language = "en") => {
   const cleanQuestion = typeof question === "string" ? question.trim() : "";
   if (!cleanQuestion) {
-    throw new Error("Please enter a question.");
+    throw new Error(translate(language, "service.enterQuestion"));
   }
 
   // 질문 토큰과 일치하는 스크랩에 가중치를 부여하고 최신 항목을 함께 포함해 최대 120개 선별
@@ -153,7 +158,7 @@ export const askMyScraps = async (question, scraps = [], language = "en") => {
 
   const data = await response.json();
   if (typeof data?.answer !== "string") {
-    throw new Error("Invalid response from Ask AI.");
+    throw new Error(translate(language, "service.invalidAskResponse"));
   }
 
   return {

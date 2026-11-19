@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Sparkles, Shuffle, X } from "lucide-react";
 import { differenceInCalendarDays, format } from "date-fns";
+import { useTranslation } from "../i18n/useTranslation";
 
 const DISMISS_STORAGE_KEY = "oms_rediscover_dismissed";
 
@@ -15,6 +16,7 @@ const hashString = (str) => {
 };
 
 const RediscoverBanner = ({ scraps, onSelectScrap }) => {
+  const { t } = useTranslation();
   const todayKey = getTodayKey();
   const [dismissed, setDismissed] = useState(() => {
     try {
@@ -29,7 +31,6 @@ const RediscoverBanner = ({ scraps, onSelectScrap }) => {
     if (!Array.isArray(scraps) || scraps.length < 3) return [];
     const now = new Date();
     const milestones = [];
-    const unreadGems = [];
 
     for (const scrap of scraps) {
       const createdAt = scrap.createdAt?.toDate ? scrap.createdAt.toDate() : null;
@@ -37,28 +38,25 @@ const RediscoverBanner = ({ scraps, onSelectScrap }) => {
       const diffDays = differenceInCalendarDays(now, createdAt);
 
       if (diffDays >= 360 && diffDays <= 370) {
-        milestones.push({ scrap, badge: "1 Year Ago" });
+        milestones.push({ scrap, badgeKey: "rediscover.oneYearAgo" });
       } else if (diffDays >= 85 && diffDays <= 95) {
-        milestones.push({ scrap, badge: "3 Months Ago" });
+        milestones.push({ scrap, badgeKey: "rediscover.threeMonthsAgo" });
       } else if (diffDays >= 28 && diffDays <= 32) {
-        milestones.push({ scrap, badge: "1 Month Ago" });
+        milestones.push({ scrap, badgeKey: "rediscover.oneMonthAgo" });
       } else if (diffDays >= 6 && diffDays <= 8) {
-        milestones.push({ scrap, badge: "1 Week Ago" });
-      } else if (scrap.isRead !== true && diffDays >= 3) {
-        unreadGems.push({ scrap, badge: "Unread Gem" });
+        milestones.push({ scrap, badgeKey: "rediscover.oneWeekAgo" });
       }
     }
 
     if (milestones.length > 0) return milestones;
-    if (unreadGems.length > 0) return unreadGems;
-    return scraps.map((scrap) => ({ scrap, badge: "Rediscover" }));
+    return scraps.map((scrap) => ({ scrap, badgeKey: "rediscover.default" }));
   }, [scraps]);
 
   if (dismissed || candidates.length === 0) return null;
 
   const baseIdx = hashString(todayKey) % candidates.length;
   const pick = candidates[(baseIdx + offset) % candidates.length];
-  const { scrap, badge } = pick;
+  const { scrap, badgeKey } = pick;
 
   const handleDismiss = (e) => {
     e.stopPropagation();
@@ -95,7 +93,7 @@ const RediscoverBanner = ({ scraps, onSelectScrap }) => {
         <div className="rediscover-meta">
           <span className="rediscover-badge">
             <Sparkles size={11} />
-            <span>{badge}</span>
+            <span>{t(badgeKey)}</span>
           </span>
           {scrap.tags?.[0] && (
             <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
@@ -104,7 +102,7 @@ const RediscoverBanner = ({ scraps, onSelectScrap }) => {
           )}
         </div>
         <div className="rediscover-title">
-          {scrap.title || "Unanalyzed Scrap"}
+          {scrap.title || t("common.unanalyzedScrap")}
         </div>
       </div>
       <div className="rediscover-actions">
@@ -112,7 +110,7 @@ const RediscoverBanner = ({ scraps, onSelectScrap }) => {
           <button
             type="button"
             className="rediscover-icon-btn"
-            title="Show another pick"
+            title={t("rediscover.showAnother")}
             onClick={(e) => {
               e.stopPropagation();
               setOffset((prev) => prev + 1);
@@ -124,7 +122,7 @@ const RediscoverBanner = ({ scraps, onSelectScrap }) => {
         <button
           type="button"
           className="rediscover-icon-btn"
-          title="Dismiss for today"
+          title={t("rediscover.dismissToday")}
           onClick={handleDismiss}
         >
           <X size={14} />
