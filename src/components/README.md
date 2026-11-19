@@ -1,33 +1,31 @@
 # Components (`src/components`)
 
 ## Overview
-URL 스크랩의 추가, 재분석, 목록/카드 조회, 검색·날짜 필터링, 상세 보기 및 삭제를 담당하는 UI 다이얼로그와 보관함 뷰 컴포넌트들을 제공합니다.
+URL 스크랩의 추가(중복 감지·클립보드 제안 포함), 재분석, 리스트/카드 조회, 태그·상태·날짜 필터링, 도메인별 스마트 요약 렌더링, 인라인 편집·개인 메모, Ask AI 보관함 질의응답, 타임캡슐 재발견 배너, PWA/북마클릿/UID 퀵 도구 모달을 제공합니다.
 
 ## Interface
-- `[AddScrapDialog.jsx:AddScrapDialog]` — URL 스크래핑, 선택적 AI 요약, Firestore 문서 생성을 오케스트레이션하는 기본 내보내기(default export) React 모달 컴포넌트(`{ onClose }`)입니다.
-- `[ReAnalyzeDialog.jsx:ReAnalyzeDialog]` — 기존 스크랩 항목을 다시 스크래핑하고 재분석하는 기본 내보내기 React 모달 컴포넌트(`{ scrap, onClose }`)입니다.
-- `[ScrapItem.jsx:ScrapItem]` — 개별 스크랩 행/카드를 렌더링하고 지연된 AI 분석, 재분석 모달 호출, 삭제 기능을 제공하는 기본 내보내기 React 컴포넌트(`{ scrap, mode, isDesktop, isSelected, onSelect, onDelete }`)입니다.
-- `[ScrapList.jsx:ScrapList]` — Firestore의 사용자 스크랩 목록을 실시간 구독하고, 검색어 및 날짜 필터링과 반응형 리스트/카드 뷰(데스크톱 분할 상세 패널 포함)를 렌더링하는 기본 내보내기 React 컴포넌트(`{ viewMode, setViewMode, onAddClick }`)입니다.
+- `[AddScrapDialog.jsx:AddScrapDialog]` — URL 스크래핑, 실시간 중복 URL 감지, 클립보드 URL 제안, AI/비-AI 요약, Firestore 문서 생성을 오케스트레이션하는 모달 컴포넌트(`{ onClose, initialUrl, onViewExisting }`)입니다.
+- `[ReAnalyzeDialog.jsx:ReAnalyzeDialog]` — 기존 스크랩 항목을 다시 스크래핑(YouTube 자막 폴백 포함)하고 재분석하는 모달 컴포넌트(`{ scrap, onClose, onSuccess }`)입니다.
+- `[ScrapItem.jsx:ScrapItem]` — 개별 스크랩 행/카드를 렌더링하고 핀·읽음 상태 배지, 클릭형 태그, 모바일 확장 상세(스마트 요약·개인 메모·인라인 편집)를 제공하는 컴포넌트입니다.
+- `[ScrapList.jsx:ScrapList]` — `ScrapContext` 데이터를 기반으로 검색(제목·요약·태그·메모), 날짜·상태(핀/안읽음)·태그 클라우드 필터링, 핀 우선 정렬, 타임캡슐 배너, Ask AI 모달, 데스크톱 분할 상세 패널을 조율합니다.
+- `[ScrapDetailPane.jsx:ScrapDetailPane]` — 데스크톱 우측 상세 패널로 핀·읽음 토글, 인라인 편집(제목/태그/요약), `SmartSummaryView`, 개인 메모(`userNote`), 재분석·원문 보기·삭제를 제공합니다.
+- `[SmartSummaryView.jsx:SmartSummaryView]` — `contentType`(`recipe`, `tech`, `video`, `place`, `product`, `general`) 및 `[섹션]` 구조를 파싱해 레시피 체크리스트(Firestore `checkedItems` 동기화)와 클릭 가능한 YouTube 타임스탬프 필(`[MM:SS]`)을 렌더링합니다.
+- `[AskArchiveModal.jsx:AskArchiveModal]` — 보관함 전체에 자연어 질문을 던지고 답변·출처 스크랩 카드·후속 질문을 표시하는 AI Q&A 모달(`{ onClose, onSelectScrap, initialQuestion }`)입니다.
+- `[RediscoverBanner.jsx:RediscoverBanner]` — 1주/1개월/3개월/1년 전 타임캡슐 또는 미열람·랜덤 스크랩을 추천하고 셔플 및 일일 닫기를 지원하는 배너(`{ scraps, onSelectScrap }`)입니다.
+- `[QuickToolsModal.jsx:QuickToolsModal]` — PWA 설치/모바일 Share Sheet 안내, 드래그·복사용 데스크톱 북마클릿, 개인 UID 복사 UI를 제공하는 모달(`{ onClose, deferredPrompt, onInstallPwa }`)입니다.
 
 ## Invariants
-- `[AddScrapDialog.jsx:handleSubmit]` — `[scraper.js:getForcedSiteTag]` 및 `[scraper.js:generateBasicTags]`를 사용합니다. `skipAi`가 `true`이면 `analyzeContent` 호출을 생략하고 `isYoutubeVideo` 여부에 따라 상태 문구(`"Long video detected. Skipping AI..."` vs `"Content restricted. Saving basic link info..."`)와 기본 태그(`generateBasicTags(url, isYoutubeVideo)`)를 설정합니다. `isYoutubeVideo`가 `true`이면 `analysis.tags`에 `"YouTube"` 태그가 항상 포함되도록 보장(맨 앞에 추가 후 최대 3개)합니다.
-- `[AddScrapDialog.jsx:handleKeyDown]` — `!loading` 상태일 때만 `Escape` 키 입력으로 다이얼로그가 닫힙니다.
-- `[ReAnalyzeDialog.jsx:handleAnalyze]` — `[scraper.js:getForcedSiteTag]` 및 `[scraper.js:generateBasicTags]`를 사용하며, `skipAi`가 `true`일 때 `[AddScrapDialog.jsx:handleSubmit]`과 동일하게 `isYoutubeVideo` 여부에 따라 상태 문구와 도메인 기본 태그를 분기합니다. `thumbnail && thumbnail !== "/placeholder.svg"`인 경우에만 Firestore 업데이트 페이로드에 `thumbnail`을 포함합니다.
-- `[ReAnalyzeDialog.jsx:handleKeyDown]` — `!analyzing` 상태일 때만 `Escape` 키 입력으로 다이얼로그가 닫힙니다.
-- `[ScrapItem.jsx:ScrapItem]` — 카드 모드(`mode === "card"`)에서는 비어 있지 않은 태그를 최대 3개(`slice(0, 3)`)까지만 표시하며, 지연된 AI 분석 버튼은 `!scrap.title`일 때만 렌더링합니다. `[ScrapItem.jsx:handleDelayedAnalysis]`는 `skipAi`가 `true`이면 `analyzeContent` 호출을 생략하고 `generateBasicTags(scrap.url, isYoutubeVideo)`를 적용하며, 새로고침(`RefreshCw`) 버튼 클릭 시 `isReAnalyzeOpen`을 `true`로 설정하여 `ReAnalyzeDialog`를 렌더링합니다.
-- `[ScrapList.jsx:isDesktop]` — 데스크톱 분할 패널 레이아웃의 기준 너비는 `window.innerWidth >= 768`입니다.
-- `[ScrapList.jsx:filteredScraps]` — `title`, `fullSummary`, `tags`에 대한 대소문자 무시 부분 문자열 일치 여부와 `filterDate` 열거값(`"all"`, `"today"`, `"week"`, `"month"`, `"older"` — `startOfDay(now)`, `subDays(now, 7)`, `subDays(now, 30)` 기준)으로 스크랩 목록을 필터링합니다.
+- `[AddScrapDialog.jsx:AddScrapDialog]` — `duplicateScrap`이 감지되면 `allowDuplicate`를 명시적으로 허용하기 전까지 중복 제출을 차단하고 기존 항목 보기·재분석·무시 저장 선택지를 제공합니다.
+- `[AddScrapDialog.jsx:handleSubmit]` / `[ReAnalyzeDialog.jsx:handleAnalyze]` — `[scraper.js:applyRequiredTags]`를 통해 강제 사이트 태그 및 `"YouTube"` 태그를 보장하며 최대 3개 태그와 `contentType`을 저장합니다.
+- `[ScrapList.jsx:filteredScraps]` — 검색어, 태그, 상태(`pinned`/`unread`), 날짜(`all`/`today`/`week`/`month`/`older`) 필터를 모두 적용한 뒤 `isPinned` 항목을 최상단에 우선 정렬합니다.
+- `[ScrapDetailPane.jsx:ScrapDetailPane]` — `key={selectedScrap.id}`로 마운트되어 선택 항목 변경 시 로컬 편집 상태를 안전하게 초기화합니다.
+- `[QuickToolsModal.jsx:QuickToolsModal]` — JSX 내 `javascript:` URL 경고를 피하기 위해 북마클릿 `href`를 `useEffect`에서 DOM ref에 직접 설정합니다.
 
 ## Side Effects
-- `[AddScrapDialog.jsx:handlePaste]` — `navigator.clipboard.readText()`를 통해 시스템 클립보드 텍스트를 읽습니다.
-- `[AddScrapDialog.jsx:handleSubmit]` — `scrapeUrl(url, { checkDuration: useAi })` 및 조건부 `analyzeContent(content, preferredLanguage, isYoutubeVideo ? url : null)`를 호출하고, `addDoc(collection(db, "scraps"), newScrap)`(`serverTimestamp()` 포함)으로 Firestore `scraps` 컬렉션에 문서를 생성한 뒤 1,500ms 타이머 후 `onClose()`를 호출합니다. 실패 시 `console.error` 및 `alert(error.message)`를 호출합니다.
-- `[AddScrapDialog.jsx:AddScrapDialog]` — `updateUseAi` 및 `updateLanguage`를 통해 전역 인증 컨텍스트의 사용자 설정을 변경하며, `document`의 `keydown` 이벤트 리스너를 등록·해제합니다.
-- `[ReAnalyzeDialog.jsx:handleAnalyze]` — `scrapeUrl(scrap.url, { checkDuration: localUseAi })` 및 조건부 `analyzeContent(content, localLang, isYoutubeVideo ? scrap.url : null)`를 호출하고, `updateDoc(doc(db, "scraps", scrap.id), updatePayload)`로 기존 Firestore 문서를 갱신한 뒤 1,000ms 대기 후 `onClose()`를 호출합니다. 실패 시 `console.error` 및 `alert(error.message)`를 호출합니다.
-- `[ReAnalyzeDialog.jsx:ReAnalyzeDialog]` — `document`의 `keydown` 이벤트 리스너를 등록·해제합니다.
-- `[ScrapItem.jsx:handleDelete]` — `window.confirm`으로 삭제 확인을 받은 뒤 `deleteDoc(doc(db, "scraps", scrap.id))`으로 Firestore 문서를 삭제하고 `onDelete(scrap.id)`를 호출합니다. 실패 시 `console.error` 및 `alert`를 호출합니다.
-- `[ScrapItem.jsx:handleDelayedAnalysis]` — `scrapeUrl(scrap.url, { checkDuration: true })`과 조건부 `analyzeContent(content, preferredLanguage, isYoutubeVideo ? scrap.url : null)`를 호출하여 `updateDoc(doc(db, "scraps", scrap.id), ...)`으로 Firestore 문서를 갱신하며, 실패 시 `console.error` 및 `alert`를 호출합니다.
-- `[ScrapItem.jsx:handleOpen]` — `[scraper.js:openSafeUrl]`을 통해 `http:`/`https:` 프로토콜이 검증된 원본 URL만 새 브라우저 탭(`_blank`, `noopener,noreferrer`)에서 엽니다.
-- `[ScrapList.jsx:ScrapList]` — `onSnapshot`을 통해 `where("userId", "==", user.uid)` 및 `orderBy("createdAt", "desc")` 조건으로 Firestore `scraps` 컬렉션을 실시간 구독하고, `window`의 `resize` 이벤트 리스너를 등록·해제하며, 상세 패널의 썸네일 클릭 시 `[scraper.js:openSafeUrl]`로 원본 페이지를 엽니다.
+- `[AddScrapDialog.jsx]` — `navigator.permissions`/`navigator.clipboard.readText()`, `paste`/`keydown` 리스너, `scrapeUrl`, `analyzeContent`, `addDoc(collection(db, "scraps"), ...)`를 호출합니다.
+- `[AskArchiveModal.jsx]` — `[gemini.js:askMyScraps]`를 호출하고 메시지 영역을 자동 스크롤합니다.
+- `[RediscoverBanner.jsx]` — `localStorage`(`oms_rediscover_dismissed`)에 일일 닫기 날짜를 저장합니다.
+- `[ScrapDetailPane.jsx]` / `[ScrapItem.jsx]` — `ScrapContext`의 `updateScrap`, `togglePin`, `toggleRead`, `markRead`, `saveUserNote`, `toggleCheckedItem`, `resetCheckedItems`, `deleteScrap`을 통해 Firestore `scraps/{id}` 문서를 갱신·삭제합니다.
 
 ## Verification
 - Run: `npm run lint`
