@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Loader2, X } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
-import { scrapeUrl, getForcedSiteTag, generateBasicTags } from "../services/scraper";
+import {
+  scrapeUrl,
+  applyRequiredTags,
+  generateBasicTags,
+  extractYoutubeVideoId,
+} from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { useAuth } from "../context/AuthContext";
 
-const ReAnalyzeDialog = ({ scrap, onClose }) => {
+const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
   const { preferredLanguage, useAi } = useAuth();
   const [localUseAi, setLocalUseAi] = useState(useAi);
   const [localLang, setLocalLang] = useState(preferredLanguage);
@@ -28,7 +33,12 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
   const handleAnalyze = async () => {
     if (analyzing) return;
     setAnalyzing(true);
-    setStatus("Fetching URL information...");
+    const isYoutubeInput = Boolean(extractYoutubeVideoId(scrap.url));
+    setStatus(
+      isYoutubeInput && localUseAi
+        ? "Checking video & transcript..."
+        : "Fetching URL information..."
+    );
 
     try {
       const {
@@ -39,43 +49,53 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
         skipAi,
         skipReason,
         isYoutubeVideo,
-      } = await scrapeUrl(scrap.url, { checkDuration: localUseAi });
+        useVideoMultimodal,
+        contentTypeHint,
+      } = await scrapeUrl(scrap.url, { checkDuration: localUseAi, language: localLang });
 
       let analysis;
       if (!localUseAi) {
         analysis = {
           title,
           tags: generateBasicTags(scrap.url, isYoutubeVideo),
+          contentType: contentTypeHint || (isYoutubeVideo ? "video" : "general"),
           fullSummary: description || "",
         };
       } else if (skipAi) {
-        setStatus(isYoutubeVideo ? "Long video detected. Skipping AI..." : "Content restricted. Saving basic link info...");
+        setStatus(
+          isYoutubeVideo
+            ? "No captions found for long video. Saving basic info..."
+            : "Content restricted. Saving basic link info..."
+        );
         analysis = {
           title,
           tags: generateBasicTags(scrap.url, isYoutubeVideo),
+          contentType: contentTypeHint || (isYoutubeVideo ? "video" : "general"),
           fullSummary: skipReason || (isYoutubeVideo ? "Skipped AI analysis." : ""),
         };
         await new Promise((resolve) => setTimeout(resolve, 800));
       } else {
-        setStatus(isYoutubeVideo ? "AI is watching the video..." : "AI is analyzing content...");
-        analysis = await analyzeContent(content, localLang, isYoutubeVideo ? scrap.url : null);
+        setStatus(
+          useVideoMultimodal
+            ? "AI is watching the video..."
+            : isYoutubeVideo
+              ? "AI is summarizing video transcript..."
+              : "AI is analyzing content..."
+        );
+        analysis = await analyzeContent(
+          content,
+          localLang,
+          useVideoMultimodal ? scrap.url : null,
+          { contentTypeHint }
+        );
       }
 
-      // Apply forced site tag (e.g. GeekNews for news.hada.io)
-      const forcedTag = getForcedSiteTag(scrap.url);
-      if (forcedTag && !analysis.tags.some((t) => t?.toLowerCase() === forcedTag.toLowerCase())) {
-        analysis.tags = [forcedTag, ...analysis.tags].slice(0, 3);
-      }
+      analysis.tags = applyRequiredTags(analysis.tags, scrap.url, isYoutubeVideo);
 
-      // YouTube 영상은 AI 경로 결과에도 "YouTube" 태그를 항상 보장한다.
-      if (isYoutubeVideo && !analysis.tags.some((t) => t?.toLowerCase() === "youtube")) {
-        analysis.tags = ["YouTube", ...analysis.tags].slice(0, 3);
-      }
-
-      // Build the update payload
       const updatePayload = {
         title: analysis.title,
         tags: analysis.tags,
+        contentType: analysis.contentType || contentTypeHint || (isYoutubeVideo ? "video" : "general"),
         fullSummary: analysis.fullSummary,
       };
       if (thumbnail && thumbnail !== "/placeholder.svg") {
@@ -86,8 +106,12 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
 
       setStatus("Updated successfully!");
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      onClose();
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        onClose();
+      }
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -122,20 +146,15 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
             Re-Analyze
           </h2>
           <button
+            type="button"
             onClick={onClose}
             disabled={analyzing}
+            className="icon-circle-btn"
             style={{
-              background: "rgba(0,0,0,0.06)",
-              border: "none",
-              borderRadius: "50%",
-              width: "32px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
               cursor: analyzing ? "default" : "pointer",
               opacity: analyzing ? 0.4 : 1,
             }}
+            aria-label="Close"
           >
             <X size={16} />
           </button>
@@ -159,6 +178,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
         <div className="dialog-controls">
           <div className="language-toggle">
             <button
+              type="button"
               className={`lang-btn ${!localUseAi ? "active" : ""}`}
               onClick={() => setLocalUseAi(false)}
               disabled={analyzing}
@@ -166,6 +186,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
               OFF
             </button>
             <button
+              type="button"
               className={`lang-btn ${localUseAi ? "active" : ""}`}
               onClick={() => setLocalUseAi(true)}
               disabled={analyzing}
@@ -175,6 +196,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
           </div>
           <div className="language-toggle">
             <button
+              type="button"
               className={`lang-btn ${localLang === "en" ? "active" : ""}`}
               onClick={() => setLocalLang("en")}
               disabled={analyzing}
@@ -182,6 +204,7 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
               EN
             </button>
             <button
+              type="button"
               className={`lang-btn ${localLang === "ko" ? "active" : ""}`}
               onClick={() => setLocalLang("ko")}
               disabled={analyzing}
@@ -192,27 +215,25 @@ const ReAnalyzeDialog = ({ scrap, onClose }) => {
         </div>
 
         {/* Status */}
-        <AnimatePresence>
-          {status && (
-            <motion.p
-              key="status-text"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              style={{
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "var(--accent-color)",
-                textAlign: "center",
-              }}
-            >
-              {status}
-            </motion.p>
-          )}
-        </AnimatePresence>
+        {status && (
+          <motion.p
+            key="status-text"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              fontSize: "14px",
+              fontWeight: "500",
+              color: "var(--accent-color)",
+              textAlign: "center",
+            }}
+          >
+            {status}
+          </motion.p>
+        )}
 
         {/* Analyze button */}
         <button
+          type="button"
           className="btn"
           onClick={handleAnalyze}
           disabled={analyzing}

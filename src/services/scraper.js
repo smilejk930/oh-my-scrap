@@ -1,9 +1,63 @@
 import { auth } from "../firebase/firebase";
 
 const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 Gemini 1M 토큰 한도 초과 유발 → AI 분석 생략
+const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 자막(Transcript) 추출 기반 분석으로 전환
 const REQUEST_TIMEOUT_MS = 5000;
+const TRANSCRIPT_TIMEOUT_MS = 12000;
 const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev";
+const TRACKING_QUERY_PARAMS = new Set([
+  "fbclid", "gclid", "dclid", "msclkid", "mc_cid", "mc_eid",
+  "si", "igshid", "ref", "ref_src", "feature", "s", "spm",
+]);
+
+export const extractYoutubeVideoId = (url) => {
+  if (!url || typeof url !== "string") return null;
+  const match = url.match(YT_ID_REGEX);
+  return match ? match[1] : null;
+};
+
+export const extractFirstUrl = (text) => {
+  if (!text || typeof text !== "string") return null;
+  const match = text.match(/https?:\/\/[^\s<>"']+/i);
+  if (!match) return null;
+  let candidate = match[0].replace(/[.,!?;:'"<>]+$/, "");
+  if (candidate.endsWith(")") && !candidate.includes("(")) {
+    candidate = candidate.slice(0, -1);
+  }
+  return sanitizeHttpUrl(candidate);
+};
+
+export const normalizeUrlForDedup = (rawUrl) => {
+  const safe = sanitizeHttpUrl(rawUrl);
+  if (!safe) return null;
+
+  const ytId = extractYoutubeVideoId(safe);
+  if (ytId) {
+    return `https://www.youtube.com/watch?v=${ytId}`;
+  }
+
+  try {
+    const u = new URL(safe);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const cleanParams = [];
+    for (const [key, val] of u.searchParams.entries()) {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.startsWith("utm_") || TRACKING_QUERY_PARAMS.has(lowerKey)) {
+        continue;
+      }
+      cleanParams.push([key, val]);
+    }
+    cleanParams.sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+    const search = cleanParams.length > 0
+      ? `?${new URLSearchParams(cleanParams).toString()}`
+      : "";
+    const pathname = u.pathname.length > 1 ? u.pathname.replace(/\/+$/, "") : u.pathname;
+    const hash = u.hash && u.hash.startsWith("#/") ? u.hash : "";
+    return `${u.protocol}//${host}${u.port ? `:${u.port}` : ""}${pathname}${search}${hash}`;
+  } catch {
+    return safe;
+  }
+};
 
 export const getProxyBaseUrl = () =>
   (import.meta.env.VITE_SCRAPE_PROXY_URL || DEFAULT_CUSTOM_PROXY_URL).trim().replace(/\/+$/, "");
@@ -47,6 +101,27 @@ export const getForcedSiteTag = (url) => {
   } catch {
     return null;
   }
+};
+
+export const applyRequiredTags = (tags = [], url, isYoutubeVideo = false) => {
+  const result = [];
+  const seen = new Set();
+  const pushUnique = (tag) => {
+    const clean = typeof tag === "string" ? tag.trim() : "";
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(clean);
+  };
+
+  const forcedTag = getForcedSiteTag(url);
+  if (forcedTag) pushUnique(forcedTag);
+  if (isYoutubeVideo) pushUnique("YouTube");
+  for (const tag of Array.isArray(tags) ? tags : []) {
+    pushUnique(tag);
+  }
+  return result.slice(0, 3);
 };
 
 export const generateBasicTags = (url, isYoutubeVideo) => {
@@ -208,8 +283,10 @@ const buildFallbackScrap = (url) => {
     content: title,
     description: "",
     skipAi: true,
-    skipReason: "웹페이지 본문 접근이 제한되어 기본 링크 정보로 저장했습니다.",
-    isYoutubeVideo: isYoutube
+    skipReason: "Webpage content is restricted. Saved with basic link info.",
+    isYoutubeVideo: isYoutube,
+    useVideoMultimodal: false,
+    contentTypeHint: isYoutube ? "video" : null
   };
 };
 
@@ -230,7 +307,7 @@ const scrapeGithubUrl = async (url, { owner, repo }) => {
       const res = await fetchWithTimeout(rawReadmeUrl);
       if (!res.ok) throw new Error(`GitHub Raw README HTTP ${res.status}`);
       const text = await res.text();
-      return text.substring(0, 5000);
+      return text.substring(0, 10000);
     })()
   ]);
 
@@ -258,7 +335,9 @@ const scrapeGithubUrl = async (url, { owner, repo }) => {
     description,
     skipAi: false,
     skipReason: "",
-    isYoutubeVideo: false
+    isYoutubeVideo: false,
+    useVideoMultimodal: false,
+    contentTypeHint: "tech"
   };
 };
 
@@ -294,13 +373,36 @@ const fetchYoutubeDurationSeconds = async (videoId) => {
   }
 };
 
+export const fetchYoutubeTranscript = async (videoId, language = "en") => {
+  if (!videoId) return null;
+  try {
+    const baseUrl = getProxyBaseUrl();
+    const lang = language === "ko" ? "ko" : "en";
+    const apiUrl = `${baseUrl}/youtube-transcript?videoId=${encodeURIComponent(videoId)}&lang=${lang}`;
+    const headers = await getAuthHeaders();
+    const res = await fetchWithTimeout(apiUrl, { headers }, TRANSCRIPT_TIMEOUT_MS);
+    if (!res.ok) {
+      console.warn(`YouTube transcript proxy failed: HTTP ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    if (typeof data?.transcript === "string" && data.transcript.trim()) {
+      return data;
+    }
+    return null;
+  } catch (e) {
+    console.warn("YouTube transcript fetch error:", e.message);
+    return null;
+  }
+};
+
 /**
  * URL에서 메타데이터(제목, 썸네일) 및 본문 텍스트를 추출합니다.
  * @param {string} url - 스크랩할 대상 URL
- * @param {{ checkDuration?: boolean }} [options]
- * @returns {Promise<{title: string, thumbnail: string, content: string, description: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean}>}
+ * @param {{ checkDuration?: boolean, language?: string }} [options]
+ * @returns {Promise<{title: string, thumbnail: string, content: string, description: string, skipAi: boolean, skipReason: string, isYoutubeVideo: boolean, useVideoMultimodal: boolean, contentTypeHint: string|null}>}
  */
-export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
+export const scrapeUrl = async (url, { checkDuration = true, language = "en" } = {}) => {
   let parsedUrl;
   try {
     parsedUrl = new URL(url);
@@ -314,7 +416,7 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
   try {
     const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
 
-    // 1단계 A: YouTube (oEmbed + Data API v3 영상 길이 확인)
+    // 1단계 A: YouTube (oEmbed + 영상 길이 확인 + 3분 초과 시 자막 기반 분석 전환)
     if (isYoutube) {
       try {
         const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
@@ -324,29 +426,49 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
         const ytTitle = data.title || "Untitled";
         const ytChannel = data.author_name || "";
 
-        // 3분 초과 영상은 AI 분석 생략 (토큰 한도 초과 방지 + 비용 절감)
-        const idMatch = url.match(YT_ID_REGEX);
-        const videoId = idMatch ? idMatch[1] : null;
+        const videoId = extractYoutubeVideoId(url);
         let skipAi = false;
         let skipReason = "";
+        let useVideoMultimodal = true;
+        let content = `Title: ${ytTitle}\nChannel: ${ytChannel}`;
+
         if (checkDuration && videoId) {
           const seconds = await fetchYoutubeDurationSeconds(videoId);
           if (seconds !== null && seconds > YOUTUBE_AI_MAX_SECONDS) {
-            skipAi = true;
             const mm = Math.floor(seconds / 60);
             const ss = seconds % 60;
-            skipReason = `3분 초과 영상(${mm}분 ${ss}초)으로 AI 분석을 생략했습니다.`;
+            // 3분 초과 영상은 자막(Transcript)을 추출해 텍스트 모드로 고속 요약 시도
+            const transcriptResult = await fetchYoutubeTranscript(videoId, language);
+            if (transcriptResult?.transcript && transcriptResult.transcript.length >= 30) {
+              useVideoMultimodal = false;
+              content = [
+                `Title: ${ytTitle}`,
+                ytChannel ? `Channel: ${ytChannel}` : "",
+                `Duration: ${mm}:${String(ss).padStart(2, "0")}`,
+                "",
+                "[YouTube Video Transcript]",
+                transcriptResult.transcript,
+              ]
+                .filter((line) => line !== "")
+                .join("\n");
+            } else {
+              skipAi = true;
+              useVideoMultimodal = false;
+              skipReason = `Video exceeds 3 minutes (${mm}m ${ss}s) and no captions were found. AI analysis was skipped.`;
+            }
           }
         }
 
         return {
           title: ytTitle,
           thumbnail: data.thumbnail_url || getGoogleFaviconUrl(url),
-          content: `Title: ${ytTitle}\nChannel: ${ytChannel}`,
+          content,
           description: ytChannel ? `Channel: ${ytChannel}` : "",
           skipAi,
           skipReason,
-          isYoutubeVideo: true
+          isYoutubeVideo: true,
+          useVideoMultimodal,
+          contentTypeHint: "video"
         };
       } catch (ytErr) {
         console.warn("[scrapeUrl] YouTube oEmbed failed, falling back to basic info:", ytErr.message);
@@ -382,7 +504,7 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
     }
 
     const bodyText = Array.from(doc.querySelectorAll("p, h1, h2, h3, article"))
-      .map((el) => el.innerText)
+      .map((el) => el.innerText || el.textContent || "")
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
@@ -419,7 +541,9 @@ export const scrapeUrl = async (url, { checkDuration = true } = {}) => {
       description,
       skipAi: false,
       skipReason: "",
-      isYoutubeVideo: false
+      isYoutubeVideo: false,
+      useVideoMultimodal: false,
+      contentTypeHint: null
     };
   } catch (error) {
     console.warn("[scrapeUrl] All extraction stages failed, using minimal URL fallback:", error);

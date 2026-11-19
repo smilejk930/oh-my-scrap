@@ -1,9 +1,45 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ScrapProvider } from "./context/ScrapContext";
 import ScrapList from "./components/ScrapList";
 import AddScrapDialog from "./components/AddScrapDialog";
-import { LogOut, Plus, List, LayoutGrid } from "lucide-react";
+import QuickToolsModal from "./components/QuickToolsModal";
+import { extractFirstUrl } from "./services/scraper";
+import { LogOut, Plus, List, LayoutGrid, SlidersHorizontal, Share2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const SHARE_STORAGE_KEY = "oms_pending_share_url";
+
+const getInitialPendingShare = () => {
+  if (typeof window === "undefined") {
+    return { url: "", cameFromUrlParams: false };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const rawCandidate =
+    params.get("addUrl") || params.get("url") || params.get("text") || params.get("title") || "";
+  const extracted = extractFirstUrl(rawCandidate);
+  const hasShareRoute =
+    window.location.pathname === "/share-target" ||
+    params.has("addUrl") ||
+    params.has("url") ||
+    params.has("text");
+
+  if (extracted) {
+    try {
+      sessionStorage.setItem(SHARE_STORAGE_KEY, extracted);
+    } catch {
+      // ignore storage failure
+    }
+    return { url: extracted, cameFromUrlParams: hasShareRoute };
+  }
+
+  try {
+    const saved = sessionStorage.getItem(SHARE_STORAGE_KEY) || "";
+    return { url: saved, cameFromUrlParams: hasShareRoute };
+  } catch {
+    return { url: "", cameFromUrlParams: hasShareRoute };
+  }
+};
 
 const UserAvatar = ({ user, size = 36 }) => {
   const label = user.displayName || user.email || "?";
@@ -42,6 +78,64 @@ const MainApp = () => {
   const { user, login, logout } = useAuth();
   const [viewMode, setViewMode] = useState("list");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const [selectedScrapId, setSelectedScrapId] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  const [shareInit] = useState(() => getInitialPendingShare());
+  const [pendingShareUrl, setPendingShareUrl] = useState(shareInit.url);
+
+  // Share Target 또는 북마클릿으로 유입된 URL 쿼리 파라미터 정리
+  useEffect(() => {
+    if (shareInit.cameFromUrlParams && typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/");
+    }
+  }, [shareInit.cameFromUrlParams]);
+
+  // PWA 설치 프롬프트 이벤트 캡처
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const clearPendingShare = useCallback(() => {
+    setPendingShareUrl("");
+    try {
+      sessionStorage.removeItem(SHARE_STORAGE_KEY);
+    } catch {
+      // ignore storage failure
+    }
+  }, []);
+
+  const handleInstallPwa = useCallback(async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try {
+      await deferredPrompt.userChoice;
+    } catch {
+      // ignore
+    }
+    setDeferredPrompt(null);
+  }, [deferredPrompt]);
+
+  const effectiveDialogOpen = isDialogOpen || Boolean(user && pendingShareUrl);
+  const effectiveInitialUrl = user && pendingShareUrl ? pendingShareUrl : "";
+
+  const handleCloseAddDialog = useCallback(() => {
+    setIsDialogOpen(false);
+    clearPendingShare();
+  }, [clearPendingShare]);
 
   // Login screen
   if (!user) {
@@ -80,7 +174,7 @@ const MainApp = () => {
             </div>
 
             {/* Main Content Container */}
-            <div style={{ marginBottom: "96px", display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div style={{ marginBottom: pendingShareUrl ? "48px" : "96px", display: "flex", flexDirection: "column", gap: "24px" }}>
               <h1 style={{ fontSize: "clamp(60px, 8vw, 96px)", fontWeight: "900", letterSpacing: "-0.05em", lineHeight: "1.1", margin: 0 }}>
                 Oh My Scrap
               </h1>
@@ -88,6 +182,13 @@ const MainApp = () => {
                 Design your knowledge.
               </p>
             </div>
+
+            {pendingShareUrl && (
+              <div className="login-share-notice">
+                <Share2 size={15} style={{ flexShrink: 0, color: "var(--accent-color)" }} />
+                <span>Shared link ready — sign in to save</span>
+              </div>
+            )}
 
             {/* Call to Action Section */}
             <div style={{ width: "100%", maxWidth: "384px" }}>
@@ -107,9 +208,9 @@ const MainApp = () => {
                   backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
                   boxShadow: "0 10px 40px rgba(0,0,0,0.04)", cursor: "pointer", transition: "transform 0.3s"
                 }}
-                onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
               >
                 <div style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", borderRadius: "50%", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                   <svg height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg">
@@ -150,6 +251,26 @@ const MainApp = () => {
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <motion.button
                 whileTap={{ scale: 0.92 }}
+                onClick={() => setIsToolsOpen(true)}
+                style={{
+                  width: "38px",
+                  height: "38px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0, 0, 0, 0.04)",
+                  border: "none",
+                  color: "#3A3A3C",
+                  cursor: "pointer"
+                }}
+                title="Quick Tools & PWA"
+                aria-label="Quick Tools and PWA"
+              >
+                <SlidersHorizontal size={18} />
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.92 }}
                 onClick={logout}
                 style={{
                   width: "38px",
@@ -165,7 +286,7 @@ const MainApp = () => {
                 }}
                 title="Sign Out"
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
               </motion.button>
               <UserAvatar user={user} />
             </div>
@@ -176,6 +297,24 @@ const MainApp = () => {
             <h1>Oh My Scrap</h1>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsToolsOpen(true)}
+                style={{
+                  padding: "10px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "7px",
+                  fontSize: "13px"
+                }}
+                title="Quick Capture, PWA & Personal UID"
+              >
+                <SlidersHorizontal size={15} />
+                <span>Tools</span>
+              </button>
+              <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={logout}
                 style={{
@@ -195,14 +334,19 @@ const MainApp = () => {
             </div>
           </div>
 
-          {/* Always show ScrapList */}
-          <ScrapList viewMode={viewMode} setViewMode={setViewMode} onAddClick={() => setIsDialogOpen(true)} />
+          <ScrapList
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onAddClick={() => setIsDialogOpen(true)}
+            selectedScrapId={selectedScrapId}
+            setSelectedScrapId={setSelectedScrapId}
+          />
 
           <div className="mobile-only mobile-bottom-spacer"></div>
         </div>
       </main>
 
-      {/* --- Mobile Bottom Navigation (exactly two items) --- */}
+      {/* --- Mobile Bottom Navigation --- */}
       <nav className="mobile-only" style={{
         position: "fixed",
         bottom: 0,
@@ -260,10 +404,30 @@ const MainApp = () => {
         </motion.button>
       </nav>
 
-      {/* Add Scrap Dialog — rendered only when open so useState defaults reset on each open */}
+      {/* Add Scrap Dialog */}
       <AnimatePresence>
-        {isDialogOpen && (
-          <AddScrapDialog key="add-scrap-dialog" onClose={() => setIsDialogOpen(false)} />
+        {effectiveDialogOpen && (
+          <AddScrapDialog
+            key={`add-scrap-dialog-${effectiveInitialUrl || "manual"}`}
+            initialUrl={effectiveInitialUrl}
+            onClose={handleCloseAddDialog}
+            onViewExisting={(existing) => {
+              if (existing?.id) {
+                setSelectedScrapId(existing.id);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Quick Tools & PWA Modal */}
+      <AnimatePresence>
+        {isToolsOpen && (
+          <QuickToolsModal
+            onClose={() => setIsToolsOpen(false)}
+            deferredPrompt={deferredPrompt}
+            onInstallPwa={handleInstallPwa}
+          />
         )}
       </AnimatePresence>
     </div>
@@ -273,7 +437,9 @@ const MainApp = () => {
 function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <ScrapProvider>
+        <MainApp />
+      </ScrapProvider>
     </AuthProvider>
   );
 }
