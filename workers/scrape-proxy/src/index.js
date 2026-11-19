@@ -29,16 +29,13 @@ const YT_VIDEO_ID_ONLY_REGEX = /^[a-zA-Z0-9_-]{11}$/;
 const YT_ALLOWED_TRANSCRIPT_HOSTS = new Set(["www.youtube.com", "youtube.com", "timedtext.youtube.com"]);
 const ALLOWED_CONTENT_TYPES = new Set(["general", "recipe", "tech", "video", "place", "product"]);
 const TEXT_GEMINI_MODELS = [
+  "gemini-4-hydrogen",
   "gemini-3.8-flash",
-  "gemini-3-flash-preview",
-  "gemini-3.5-flash-lite",
-  "gemini-3.1-pro-preview",
   "gemini-flash-latest",
 ];
 const VIDEO_GEMINI_MODELS = [
+  "gemini-4-hydrogen",
   "gemini-3.8-flash",
-  "gemini-3-flash-preview",
-  "gemini-3.1-pro-preview",
   "gemini-flash-latest",
 ];
 
@@ -963,12 +960,18 @@ const callGeminiWithFallback = async ({
   systemInstructionText,
   userParts,
   timeoutMs = 20000,
+  thinkingLevel = "low",
   validateParsed,
 }) => {
   const maxRetriesPerModel = 3;
   let lastError = new Error("Initialization");
 
   for (const modelName of models) {
+    const generationConfig = { responseMimeType: "application/json" };
+    if (modelName.startsWith("gemini-4-") && thinkingLevel) {
+      generationConfig.thinkingConfig = { thinkingLevel };
+    }
+
     for (let attempt = 1; attempt <= maxRetriesPerModel; attempt++) {
       try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
@@ -981,7 +984,7 @@ const callGeminiWithFallback = async ({
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemInstructionText }] },
             contents: [{ role: "user", parts: userParts }],
-            generationConfig: { responseMimeType: "application/json" },
+            generationConfig,
           }),
           signal: AbortSignal.timeout(timeoutMs),
         });
@@ -1252,6 +1255,7 @@ const handleAnalyze = async (request, env, corsHeaders) => {
       systemInstructionText,
       userParts,
       timeoutMs: 25000,
+      thinkingLevel: "low",
       validateParsed: (parsed) => {
         if (!parsed?.title || !Array.isArray(parsed?.tags) || !parsed?.fullSummary) {
           return null;
@@ -1379,6 +1383,7 @@ const handleAsk = async (request, env, corsHeaders) => {
       systemInstructionText,
       userParts,
       timeoutMs: 25000,
+      thinkingLevel: "low",
       validateParsed: (parsed) => {
         if (typeof parsed?.answer !== "string" || !parsed.answer.trim()) {
           return null;
