@@ -643,67 +643,104 @@ const decodeXmlEntities = (text = "") =>
     .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)));
 
 /**
- * JSON 텍스트에서 특정 키 뒤의 대괄호 배열([...])을 균형 추적으로 안전하게 추출
+ * InnerTube 자막 조회용 클라이언트 목록 (데이터센터 IP 봇 차단 회피용 다중 클라이언트 폴백)
  */
-const extractJsonArrayAfterKey = (source, keyPattern) => {
-  const idx = source.indexOf(keyPattern);
-  if (idx === -1) return null;
-  const start = source.indexOf("[", idx + keyPattern.length);
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < source.length; i++) {
-    const ch = source[i];
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (ch === "\\") {
-        escaped = true;
-      } else if (ch === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-    } else if (ch === "[") {
-      depth++;
-    } else if (ch === "]") {
-      depth--;
-      if (depth === 0) {
-        try {
-          return JSON.parse(source.slice(start, i + 1));
-        } catch {
-          return null;
-        }
-      }
-    }
-  }
-  return null;
-};
+const INNERTUBE_TRANSCRIPT_CLIENTS = [
+  {
+    name: "ANDROID",
+    userAgent: "com.google.android.youtube/20.10.38 (Linux; U; Android 14)",
+    buildClient: (lang) => ({
+      clientName: "ANDROID",
+      clientVersion: "20.10.38",
+      hl: lang,
+    }),
+  },
+  {
+    name: "IOS",
+    userAgent: "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
+    buildClient: (lang) => ({
+      clientName: "IOS",
+      clientVersion: "20.10.4",
+      deviceMake: "Apple",
+      deviceModel: "iPhone16,2",
+      hl: lang,
+    }),
+  },
+];
 
 /**
- * 우선순위에 따라 최적의 YouTube 자막 트랙 선택
+ * 우선순위에 따라 YouTube 자막 트랙 목록을 정렬 (baseUrl 기준 중복 제거)
  */
-const selectBestCaptionTrack = (tracks, preferredLang = "ko") => {
-  if (!Array.isArray(tracks) || tracks.length === 0) return null;
-  const langOrder = preferredLang === "en" ? ["en", "ko"] : ["ko", "en"];
+const rankCaptionTracks = (tracks, preferredLang = "ko") => {
+  if (!Array.isArray(tracks) || tracks.length === 0) return [];
+  const validTracks = tracks.filter((t) => typeof t?.baseUrl === "string" && t.baseUrl.trim());
+  if (validTracks.length === 0) return [];
 
+  const langOrder = preferredLang === "en" ? ["en", "ko"] : ["ko", "en"];
   const matchesLang = (track, lang) => {
     const code = String(track?.languageCode || "").toLowerCase();
     return code === lang || code.startsWith(`${lang}-`);
   };
 
+  const ranked = [];
+  const seen = new Set();
+  const pushUnique = (track) => {
+    if (!track || seen.has(track.baseUrl)) return;
+    seen.add(track.baseUrl);
+    ranked.push(track);
+  };
+
   for (const lang of langOrder) {
-    const manual = tracks.find((t) => matchesLang(t, lang) && t?.kind !== "asr" && t?.baseUrl);
-    if (manual) return manual;
-    const auto = tracks.find((t) => matchesLang(t, lang) && t?.baseUrl);
-    if (auto) return auto;
+    for (const track of validTracks) {
+      if (matchesLang(track, lang) && track?.kind !== "asr") pushUnique(track);
+    }
+    for (const track of validTracks) {
+      if (matchesLang(track, lang) && track?.kind === "asr") pushUnique(track);
+    }
   }
 
-  return tracks.find((t) => t?.kind !== "asr" && t?.baseUrl) || tracks.find((t) => t?.baseUrl) || null;
+  for (const track of validTracks) {
+    if (track?.kind !== "asr") pushUnique(track);
+  }
+  for (const track of validTracks) {
+    pushUnique(track);
+  }
+
+  return ranked;
+};
+
+/**
+ * JSON3 또는 XML 형식의 자막 응답에서 { startSec, text } 배열을 추출
+ */
+const parseCaptionEntries = (captionRaw) => {
+  const entries = [];
+  if (!captionRaw || !captionRaw.trim()) return entries;
+
+  try {
+    const json3 = JSON.parse(captionRaw);
+    const events = Array.isArray(json3?.events) ? json3.events : [];
+    for (const ev of events) {
+      if (!Array.isArray(ev?.segs)) continue;
+      const text = ev.segs.map((s) => s?.utf8 || "").join("").trim();
+      if (!text) continue;
+      entries.push({
+        startSec: Math.floor((Number(ev.tStartMs) || 0) / 1000),
+        text,
+      });
+    }
+    return entries;
+  } catch {
+    const xmlMatches = captionRaw.matchAll(/<text\b[^>]*\bstart="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/gi);
+    for (const m of xmlMatches) {
+      const clean = decodeXmlEntities(m[2].replace(/<[^>]+>/g, " ")).trim();
+      if (!clean) continue;
+      entries.push({
+        startSec: Math.floor(Number(m[1]) || 0),
+        text: clean,
+      });
+    }
+    return entries;
+  }
 };
 
 /**
@@ -761,6 +798,8 @@ const formatTranscriptBlocks = (entries, maxChars = 11000) => {
 
 /**
  * YouTube 영상 자막(Transcript) 추출 핸들러 (3분 초과 영상 초고속 요약용)
+ * - ANDROID / IOS 다중 InnerTube 클라이언트 순차 시도로 데이터센터 IP 봇 차단 회피
+ * - 트랙별 SSRF 호스트 검증 후 JSON3/XML 자막 파싱 및 Edge Cache(3,600초) 적재
  */
 const handleYoutubeTranscript = async (reqUrl, corsHeaders, ctx) => {
   const videoId = reqUrl.searchParams.get("videoId") || "";
@@ -785,163 +824,106 @@ const handleYoutubeTranscript = async (reqUrl, corsHeaders, ctx) => {
   }
 
   try {
-    let captionTracks = null;
     let durationSeconds = null;
+    let sawBotBlock = false;
 
-    // 1단계: YouTube ANDROID InnerTube player API 호출
-    try {
-      const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 14)",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          context: {
-            client: {
-              clientName: "ANDROID",
-              clientVersion: "20.10.38",
-              hl: lang,
-            },
-          },
-          videoId,
-        }),
-        signal: AbortSignal.timeout(6000),
-      });
-
-      if (playerRes.ok) {
-        const playerData = await playerRes.json();
-        const rawTracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (Array.isArray(rawTracks) && rawTracks.length > 0) {
-          captionTracks = rawTracks;
-        }
-        const lenSec = Number(playerData?.videoDetails?.lengthSeconds);
-        if (Number.isFinite(lenSec) && lenSec > 0) {
-          durationSeconds = lenSec;
-        }
-      }
-    } catch {
-      // 1단계 실패 시 웹페이지 폴백으로 전환
-    }
-
-    // 2단계(폴백): YouTube watch HTML에서 captionTracks 파싱
-    if (!captionTracks) {
+    for (const clientCfg of INNERTUBE_TRANSCRIPT_CLIENTS) {
+      let playerData;
       try {
-        const watchRes = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
+        const playerRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+          method: "POST",
           headers: {
-            "User-Agent": BROWSER_USER_AGENT,
-            "Accept-Language": lang === "ko" ? "ko-KR,ko;q=0.9,en;q=0.8" : "en-US,en;q=0.9",
-            Cookie: "CONSENT=YES+cb.20210328-17-p0.en+FX+471",
+            "Content-Type": "application/json",
+            "User-Agent": clientCfg.userAgent,
+            Accept: "application/json",
           },
-          signal: AbortSignal.timeout(6000),
+          body: JSON.stringify({
+            context: {
+              client: clientCfg.buildClient(lang),
+            },
+            videoId,
+          }),
+          signal: AbortSignal.timeout(4500),
         });
-        if (watchRes.ok) {
-          const watchHtml = await watchRes.text();
-          captionTracks = extractJsonArrayAfterKey(watchHtml, '"captionTracks":');
-        }
+        if (!playerRes.ok) continue;
+        playerData = await playerRes.json();
       } catch {
-        captionTracks = null;
+        continue;
+      }
+
+      const lenSec = Number(playerData?.videoDetails?.lengthSeconds);
+      if (Number.isFinite(lenSec) && lenSec > 0) {
+        durationSeconds = lenSec;
+      }
+      if (playerData?.playabilityStatus?.status === "LOGIN_REQUIRED") {
+        sawBotBlock = true;
+      }
+
+      const rawTracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (!Array.isArray(rawTracks) || rawTracks.length === 0) continue;
+
+      for (const track of rankCaptionTracks(rawTracks, lang).slice(0, 3)) {
+        // SSRF 방어: 추출된 자막 트랙 URL의 프로토콜 및 호스트 엄격 검증
+        let trackUrl;
+        try {
+          trackUrl = new URL(track.baseUrl);
+        } catch {
+          continue;
+        }
+        if (trackUrl.protocol !== "https:" || !YT_ALLOWED_TRANSCRIPT_HOSTS.has(trackUrl.hostname.toLowerCase())) {
+          continue;
+        }
+
+        trackUrl.searchParams.set("fmt", "json3");
+        let captionRaw = "";
+        try {
+          const captionRes = await fetch(trackUrl.toString(), {
+            headers: { "User-Agent": clientCfg.userAgent },
+            signal: AbortSignal.timeout(4500),
+          });
+          if (!captionRes.ok) continue;
+          captionRaw = await captionRes.text();
+        } catch {
+          continue;
+        }
+        if (!captionRaw || !captionRaw.trim()) continue;
+
+        const entries = parseCaptionEntries(captionRaw);
+        const transcript = formatTranscriptBlocks(entries, 11000);
+        if (!transcript || transcript.length < 30) continue;
+
+        const payload = {
+          transcript,
+          language: track.languageCode || lang,
+          isAutoGenerated: track.kind === "asr",
+          durationSeconds,
+        };
+
+        const headers = new Headers(corsHeaders);
+        headers.set("Content-Type", "application/json; charset=utf-8");
+        headers.set("Cache-Control", "public, max-age=3600");
+        headers.set("X-Content-Type-Options", "nosniff");
+        headers.set("X-Proxy-Cache", "MISS");
+
+        const response = new Response(JSON.stringify(payload), { status: 200, headers });
+        if (cache && ctx?.waitUntil) {
+          ctx.waitUntil(cache.put(cacheKey, response.clone()));
+        }
+        return response;
       }
     }
 
-    const bestTrack = selectBestCaptionTrack(captionTracks, lang);
-    if (!bestTrack?.baseUrl) {
-      return jsonResponse(
-        { transcript: null, language: null, isAutoGenerated: false, durationSeconds },
-        200,
-        corsHeaders
-      );
-    }
-
-    // SSRF 방어: 추출된 자막 트랙 URL의 프로토콜 및 호스트 엄격 검증
-    let trackUrl;
-    try {
-      trackUrl = new URL(bestTrack.baseUrl);
-    } catch {
-      return jsonResponse(
-        { transcript: null, language: null, isAutoGenerated: false, durationSeconds },
-        200,
-        corsHeaders
-      );
-    }
-    if (trackUrl.protocol !== "https:" || !YT_ALLOWED_TRANSCRIPT_HOSTS.has(trackUrl.hostname.toLowerCase())) {
-      return jsonResponse(
-        { transcript: null, language: null, isAutoGenerated: false, durationSeconds },
-        200,
-        corsHeaders
-      );
-    }
-
-    trackUrl.searchParams.set("fmt", "json3");
-    const captionRes = await fetch(trackUrl.toString(), {
-      headers: { "User-Agent": BROWSER_USER_AGENT },
-      signal: AbortSignal.timeout(6000),
-    });
-
-    if (!captionRes.ok) {
-      return jsonResponse(
-        { transcript: null, language: null, isAutoGenerated: false, durationSeconds },
-        200,
-        corsHeaders
-      );
-    }
-
-    const captionRaw = await captionRes.text();
-    const entries = [];
-
-    // JSON3 파싱 시도 후 실패하면 XML <text> 폴백
-    try {
-      const json3 = JSON.parse(captionRaw);
-      const events = Array.isArray(json3?.events) ? json3.events : [];
-      for (const ev of events) {
-        if (!Array.isArray(ev?.segs)) continue;
-        const text = ev.segs.map((s) => s?.utf8 || "").join("").trim();
-        if (!text) continue;
-        entries.push({
-          startSec: Math.floor((Number(ev.tStartMs) || 0) / 1000),
-          text,
-        });
-      }
-    } catch {
-      const xmlMatches = captionRaw.matchAll(/<text\b[^>]*\bstart="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/gi);
-      for (const m of xmlMatches) {
-        const clean = decodeXmlEntities(m[2].replace(/<[^>]+>/g, " ")).trim();
-        if (!clean) continue;
-        entries.push({
-          startSec: Math.floor(Number(m[1]) || 0),
-          text: clean,
-        });
-      }
-    }
-
-    const transcript = formatTranscriptBlocks(entries, 11000);
-    if (!transcript) {
-      return jsonResponse(
-        { transcript: null, language: null, isAutoGenerated: false, durationSeconds },
-        200,
-        corsHeaders
-      );
-    }
-
-    const payload = {
-      transcript,
-      language: bestTrack.languageCode || lang,
-      isAutoGenerated: bestTrack.kind === "asr",
-      durationSeconds,
-    };
-
-    const headers = new Headers(corsHeaders);
-    headers.set("Content-Type", "application/json; charset=utf-8");
-    headers.set("Cache-Control", "public, max-age=3600");
-    headers.set("X-Content-Type-Options", "nosniff");
-    headers.set("X-Proxy-Cache", "MISS");
-
-    const response = new Response(JSON.stringify(payload), { status: 200, headers });
-    if (cache && ctx?.waitUntil) {
-      ctx.waitUntil(cache.put(cacheKey, response.clone()));
-    }
-    return response;
+    return jsonResponse(
+      {
+        transcript: null,
+        language: null,
+        isAutoGenerated: false,
+        durationSeconds,
+        reason: sawBotBlock ? "bot_blocked" : "no_captions",
+      },
+      200,
+      corsHeaders
+    );
   } catch (error) {
     return jsonResponse(
       { transcript: null, language: null, isAutoGenerated: false, detail: error.message },
@@ -961,18 +943,24 @@ const callGeminiWithFallback = async ({
   userParts,
   timeoutMs = 20000,
   thinkingLevel = "low",
+  mediaResolution = null,
+  maxRetriesPerModel = 3,
   validateParsed,
 }) => {
-  const maxRetriesPerModel = 3;
   let lastError = new Error("Initialization");
 
   for (const modelName of models) {
-    const generationConfig = { responseMimeType: "application/json" };
-    if (modelName.startsWith("gemini-4-") && thinkingLevel) {
-      generationConfig.thinkingConfig = { thinkingLevel };
-    }
+    let useMediaResolution = Boolean(mediaResolution);
 
     for (let attempt = 1; attempt <= maxRetriesPerModel; attempt++) {
+      const generationConfig = { responseMimeType: "application/json" };
+      if (modelName.startsWith("gemini-4-") && thinkingLevel) {
+        generationConfig.thinkingConfig = { thinkingLevel };
+      }
+      if (useMediaResolution && mediaResolution) {
+        generationConfig.mediaResolution = mediaResolution;
+      }
+
       try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
         const response = await fetch(endpoint, {
@@ -1023,9 +1011,19 @@ const callGeminiWithFallback = async ({
       } catch (error) {
         lastError = error;
         const status = error?.status;
+        if (
+          status === 400 &&
+          useMediaResolution &&
+          /mediaResolution|media_resolution/i.test(error.message || "")
+        ) {
+          useMediaResolution = false;
+          continue;
+        }
         if (status === 429 || error.message?.includes("429")) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         } else if (
+          error?.name === "TimeoutError" ||
+          error?.name === "AbortError" ||
           status === 503 ||
           status === 404 ||
           error.message?.includes("503") ||
@@ -1060,6 +1058,7 @@ const handleAnalyze = async (request, env, corsHeaders) => {
   const language = body?.language === "ko" ? "ko" : "en";
   const isKorean = language === "ko";
   const contentTypeHint = ALLOWED_CONTENT_TYPES.has(body?.contentTypeHint) ? body.contentTypeHint : null;
+  const lowResVideo = Boolean(body?.lowResVideo);
 
   // YouTube URL 엄격 검증 및 정규화 (임의 fileUri 주입 차단)
   let normalizedVideoUrl = null;
@@ -1254,8 +1253,10 @@ const handleAnalyze = async (request, env, corsHeaders) => {
       models,
       systemInstructionText,
       userParts,
-      timeoutMs: 25000,
+      timeoutMs: normalizedVideoUrl && lowResVideo ? 40000 : 25000,
       thinkingLevel: "low",
+      mediaResolution: normalizedVideoUrl && lowResVideo ? "MEDIA_RESOLUTION_LOW" : null,
+      maxRetriesPerModel: normalizedVideoUrl && lowResVideo ? 2 : 3,
       validateParsed: (parsed) => {
         if (!parsed?.title || !Array.isArray(parsed?.tags) || !parsed?.fullSummary) {
           return null;
