@@ -9,6 +9,7 @@ React 애플리케이션 진입점(`main.jsx`), 최상위 인증·보관함 셸 
 - [components](./components/README.md) — 스크랩 추가·재분석·Ask AI·퀵 도구 모달, 리스트/카드 뷰, 스마트 요약, 상세 편집 패널, 타임캡슐 배너를 제공합니다.
 - [context](./context/README.md) — 인증 상태·사용자 설정 프로바이더(`AuthProvider`, `useAuth`) 및 스크랩 상태·중복 감지·변이 프로바이더(`ScrapProvider`, `useScraps`)입니다.
 - [firebase](./firebase/README.md) — Firebase Auth, Google OAuth 프로바이더, Firestore 싱글턴 내보내기(`auth`, `googleProvider`, `db`)입니다.
+- `i18n` — `translations.js`(`en`/`ko` 사전, `translate`, `normalizeLanguage`) 및 `useTranslation` 훅을 제공합니다.
 - [services](./services/README.md) — 클라이언트 측 URL 정규화·스크래핑 및 Gemini AI 분석·질의응답 서비스(`scrapeUrl`, `analyzeContent`, `askMyScraps`)입니다.
 
 ## Invariants
