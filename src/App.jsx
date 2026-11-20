@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ScrapProvider } from "./context/ScrapContext";
 import ScrapList from "./components/ScrapList";
 import AddScrapDialog from "./components/AddScrapDialog";
 import QuickToolsModal from "./components/QuickToolsModal";
 import { extractFirstUrl } from "./services/scraper";
-import { LogOut, Plus, List, LayoutGrid, SlidersHorizontal, Share2 } from "lucide-react";
+import { LogOut, Plus, List, LayoutGrid, SlidersHorizontal, Share2, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "./i18n/useTranslation";
 
@@ -83,6 +83,7 @@ const MainApp = () => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [selectedScrapId, setSelectedScrapId] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const mainContentRef = useRef(null);
 
   const [shareInit] = useState(() => getInitialPendingShare());
   const [pendingShareUrl, setPendingShareUrl] = useState(shareInit.url);
@@ -138,6 +139,18 @@ const MainApp = () => {
     setIsDialogOpen(false);
     clearPendingShare();
   }, [clearPendingShare]);
+
+  const handleScrollToTop = useCallback(() => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const behavior = prefersReducedMotion ? "auto" : "smooth";
+
+    window.scrollTo({ top: 0, behavior });
+    if (mainContentRef.current && mainContentRef.current.scrollTop > 0) {
+      mainContentRef.current.scrollTo({ top: 0, behavior });
+    }
+  }, []);
 
   // Login screen
   if (!user) {
@@ -245,7 +258,7 @@ const MainApp = () => {
   return (
     <div className="app-layout">
       {/* --- Main Content Area --- */}
-      <main className="main-content">
+      <main ref={mainContentRef} className="main-content">
         <div className="container">
           {/* Mobile Header (Hidden on Desktop) */}
           <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "center" }}>
@@ -362,7 +375,8 @@ const MainApp = () => {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "12px 24px calc(12px + env(safe-area-inset-bottom))",
+        gap: "8px",
+        padding: "12px 20px calc(12px + env(safe-area-inset-bottom))",
         zIndex: 100
       }}>
         {/* Left: view-mode toggle pill */}
@@ -383,28 +397,44 @@ const MainApp = () => {
           </button>
         </div>
 
-        {/* Right: Add button */}
-        <motion.button
-          whileTap={{ scale: 0.92 }}
-          onClick={() => setIsDialogOpen(true)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "10px 18px",
-            borderRadius: "20px",
-            border: "none",
-            background: "var(--accent-color)",
-            color: "#fff",
-            fontWeight: "600",
-            fontSize: "14px",
-            cursor: "pointer",
-            boxShadow: "0 4px 14px rgba(0,113,227,0.3)"
-          }}
-        >
-          <Plus size={16} />
-          <span>{t("nav.add")}</span>
-        </motion.button>
+        {/* Right: Scroll to top & Add buttons */}
+        <div className="mobile-nav-actions">
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.92 }}
+            onClick={handleScrollToTop}
+            className="mobile-scroll-top-btn"
+            title={t("nav.scrollToTopTitle")}
+            aria-label={t("nav.scrollToTopTitle")}
+          >
+            <ArrowUp size={15} />
+            <span>{t("nav.scrollToTop")}</span>
+          </motion.button>
+
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setIsDialogOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "10px 18px",
+              borderRadius: "20px",
+              border: "none",
+              background: "var(--accent-color)",
+              color: "#fff",
+              fontWeight: "600",
+              fontSize: "14px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              boxShadow: "0 4px 14px rgba(0,113,227,0.3)"
+            }}
+          >
+            <Plus size={16} />
+            <span>{t("nav.add")}</span>
+          </motion.button>
+        </div>
       </nav>
 
       {/* Add Scrap Dialog */}

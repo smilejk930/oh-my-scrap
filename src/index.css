@@ -1589,3 +1589,36 @@ input:focus {
   }
 }
 
+/* Mobile Bottom Navigation Actions */
+.mobile-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-scroll-top-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.055);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mobile-scroll-top-btn:hover {
+  background: rgba(0, 0, 0, 0.09);
+  color: var(--accent-color);
+}
+
+.mobile-scroll-top-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+

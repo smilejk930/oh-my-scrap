@@ -42,6 +42,8 @@ export const TRANSLATIONS = {
     "nav.cardView": "Card view",
     "nav.add": "Add",
     "nav.addScrap": "Add Scrap",
+    "nav.scrollToTop": "Top",
+    "nav.scrollToTopTitle": "Scroll to top",
 
     "tools.modalTitle": "Tools & Quick Capture",
     "tools.languageTitle": "Language",
@@ -217,6 +219,8 @@ export const TRANSLATIONS = {
     "nav.cardView": "카드 보기",
     "nav.add": "추가",
     "nav.addScrap": "스크랩 추가",
+    "nav.scrollToTop": "맨 위로",
+    "nav.scrollToTopTitle": "맨 상단으로 이동",
 
     "tools.modalTitle": "도구 및 빠른 수집",
     "tools.languageTitle": "언어",
