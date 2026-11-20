@@ -47,10 +47,10 @@ cd workers/scrape-proxy ; npm install ; npm run dev
 ```powershell
 cd workers/scrape-proxy ; npx wrangler secret put GEMINI_API_KEY ; npx wrangler secret put YOUTUBE_API_KEY ; npm run deploy
 ```
-- 배포 URL: `https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev`
+- 배포 URL: `https://oh-my-scrap-proxy.smilejk930.workers.dev`
 
 ### 3. 프론트엔드 환경 변수(`.env`) 연결
 프로젝트 루트의 `.env` 파일에는 공개 Worker URL만 지정하며, `VITE_GEMINI_API_KEY`나 `VITE_YOUTUBE_API_KEY`는 포함하지 않습니다:
 ```env
-VITE_SCRAPE_PROXY_URL=https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev
+VITE_SCRAPE_PROXY_URL=https://oh-my-scrap-proxy.smilejk930.workers.dev
 ```

@@ -6,7 +6,7 @@ const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 자막(Transcript) 
 const YOUTUBE_MULTIMODAL_FALLBACK_MAX_SECONDS = 1200; // 20분 이하 영상은 자막 추출 실패 시 저해상도 멀티모달 분석 폴백
 const REQUEST_TIMEOUT_MS = 5000;
 const TRANSCRIPT_TIMEOUT_MS = 18000;
-const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.oh-my-scrap-proxy.workers.dev";
+const DEFAULT_CUSTOM_PROXY_URL = "https://oh-my-scrap-proxy.smilejk930.workers.dev";
 const TRACKING_QUERY_PARAMS = new Set([
   "fbclid", "gclid", "dclid", "msclkid", "mc_cid", "mc_eid",
   "si", "igshid", "ref", "ref_src", "feature", "s", "spm",
