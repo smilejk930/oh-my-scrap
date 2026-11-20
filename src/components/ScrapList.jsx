@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useScraps } from "../context/ScrapContext";
 import { useTranslation } from "../i18n/useTranslation";
 import ScrapItem from "./ScrapItem";
@@ -32,6 +32,9 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
   const [showAllTags, setShowAllTags] = useState(false);
   const [isAskOpen, setIsAskOpen] = useState(false);
   const [mobileExpandedId, setMobileExpandedId] = useState(null);
+  const [mobileFocusTick, setMobileFocusTick] = useState(0);
+  const prevMobileExpandedIdRef = useRef(null);
+  const forceMobileScrollIdRef = useRef(null);
 
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 768 : true
@@ -45,7 +48,7 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
     const update = () => {
       setIsDesktop(window.innerWidth >= 768);
       if (searchHeaderRef.current) {
-        setDetailPaneTop(searchHeaderRef.current.offsetHeight + 20);
+        setDetailPaneTop(searchHeaderRef.current.offsetHeight + 10);
       }
     };
     const rafId = requestAnimationFrame(update);
@@ -185,6 +188,75 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
     return matched.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
   }, [scraps, searchTerm, selectedTag, statusFilter, filterDate]);
 
+  const filteredScrapsRef = useRef(filteredScraps);
+
+  useLayoutEffect(() => {
+    filteredScrapsRef.current = filteredScraps;
+  }, [filteredScraps]);
+
+  useLayoutEffect(() => {
+    const prevId = prevMobileExpandedIdRef.current;
+    const isForcedFocus =
+      Boolean(mobileExpandedId) && forceMobileScrollIdRef.current === mobileExpandedId;
+
+    if (prevId === mobileExpandedId && !isForcedFocus) {
+      return;
+    }
+    prevMobileExpandedIdRef.current = mobileExpandedId;
+
+    if (isDesktop || viewMode !== "list" || !mobileExpandedId) {
+      forceMobileScrollIdRef.current = null;
+      return;
+    }
+
+    const el = document.getElementById(`scrap-item-${mobileExpandedId}`);
+    const headerEl = searchHeaderRef.current;
+    if (!el || !headerEl) {
+      forceMobileScrollIdRef.current = null;
+      return;
+    }
+
+    forceMobileScrollIdRef.current = null;
+
+    const stickyTop = parseFloat(window.getComputedStyle(headerEl).top) || 0;
+    const stuckHeaderBottom = stickyTop + headerEl.offsetHeight;
+    const currentHeaderBottom = headerEl.getBoundingClientRect().bottom;
+    const gap = 6;
+    const desiredTop = stuckHeaderBottom + gap;
+
+    const rect = el.getBoundingClientRect();
+    const bottomNav = document.querySelector("nav.mobile-only");
+    const bottomNavHeight = bottomNav ? bottomNav.offsetHeight : 72;
+    const usableBottom = window.innerHeight - bottomNavHeight - 12;
+
+    const list = filteredScrapsRef.current;
+    const prevIndex = prevId ? list.findIndex((s) => s.id === prevId) : -1;
+    const nextIndex = list.findIndex((s) => s.id === mobileExpandedId);
+    const collapsedAbove = prevIndex !== -1 && nextIndex !== -1 && prevIndex < nextIndex;
+    const hadPrevExpanded = prevIndex !== -1 && prevId !== mobileExpandedId;
+
+    const isTopObscured = rect.top < currentHeaderBottom + 4 || rect.top < desiredTop;
+    const isLongOverflowing = rect.bottom > usableBottom;
+    const isOpenedLowOnScreen = rect.top > window.innerHeight * 0.5 && isLongOverflowing;
+
+    const shouldScrollToHeader =
+      isForcedFocus ||
+      isTopObscured ||
+      (hadPrevExpanded && isLongOverflowing) ||
+      isOpenedLowOnScreen;
+
+    if (!shouldScrollToHeader) return;
+
+    const targetScrollY = Math.max(0, Math.round(window.scrollY + rect.top - desiredTop));
+    const shouldJumpInstantly = !isForcedFocus && (collapsedAbove || isTopObscured);
+
+    if (shouldJumpInstantly) {
+      window.scrollTo(0, targetScrollY);
+    } else {
+      window.scrollTo({ top: targetScrollY, behavior: "smooth" });
+    }
+  }, [mobileExpandedId, isDesktop, viewMode, mobileFocusTick]);
+
   const handleTagClick = useCallback((tag) => {
     if (!tag) return;
     setSelectedTag((prev) =>
@@ -204,7 +276,10 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
         if (viewMode === "card") {
           setViewMode("list");
         }
+        forceMobileScrollIdRef.current = scrap.id;
         setMobileExpandedId(scrap.id);
+        setMobileFocusTick((n) => n + 1);
+        return;
       }
       requestAnimationFrame(() => {
         const el = document.getElementById(`scrap-item-${scrap.id}`);
@@ -233,9 +308,11 @@ const ScrapList = ({ viewMode, setViewMode, onAddClick, selectedScrapId, setSele
         className="flex-column"
         style={{
           position: "sticky",
-          top: "10px",
+          top: 0,
           zIndex: 10,
           background: "var(--bg-color)",
+          paddingTop: "10px",
+          marginTop: "-10px",
           paddingBottom: "10px",
         }}
       >

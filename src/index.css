@@ -118,6 +118,7 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow-anchor: none;
 }
 
 /* Layout for Row */
@@ -146,6 +147,47 @@ input:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.scrap-card-item {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.18s ease, transform 0.12s ease;
+}
+
+.scrap-card-item:active {
+  transform: scale(0.992);
+}
+
+.scrap-card-item.is-expanded {
+  background: #ffffff;
+  border-color: rgba(0, 113, 227, 0.28);
+  box-shadow: 0 4px 18px rgba(0, 113, 227, 0.08);
+}
+
+.scrap-card-item.is-expanded:active {
+  transform: none;
+}
+
+.scrap-expand-chevron {
+  background: none;
+  border: none;
+  color: #c7c7cc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), color 0.16s ease;
+}
+
+.scrap-expand-chevron.is-expanded {
+  transform: rotate(180deg);
+  color: var(--accent-color);
+}
+
+.scrap-mobile-expanded {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Mobile Responsive */

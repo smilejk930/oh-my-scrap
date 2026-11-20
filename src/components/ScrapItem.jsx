@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   ExternalLink,
   ChevronDown,
-  ChevronUp,
   Trash2,
   RefreshCw,
   Pin,
@@ -189,20 +188,17 @@ const ScrapItem = ({
   if (mode === "card") {
     return (
       <>
-        <motion.div
-          layout
-          transition={{ layout: { duration: 0.15, ease: "easeOut" } }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+        <div
           id={`scrap-item-${scrap.id}`}
-          className={`card ${isSelected ? "selected" : ""}`}
+          className={`card scrap-card-item ${isSelected ? "selected" : ""}`}
           style={{
             padding: "0",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
             cursor: "pointer",
-            border: isSelected ? "2px solid #0071E3" : "1px solid rgba(0,0,0,0.05)",
+            border: isSelected ? "1px solid #0071E3" : "1px solid rgba(0,0,0,0.05)",
+            boxShadow: isSelected ? "0 0 0 1px #0071E3" : undefined,
           }}
           onClick={() => (isDesktop ? onSelect() : handleOpen())}
         >
@@ -330,7 +326,7 @@ const ScrapItem = ({
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
         <AnimatePresence>
           {isReAnalyzeOpen && (
             <ReAnalyzeDialog scrap={scrap} onClose={() => setIsReAnalyzeOpen(false)} />
@@ -343,19 +339,15 @@ const ScrapItem = ({
   // List Mode
   return (
     <>
-      <motion.div
-        layout
-        transition={{ layout: { duration: 0.12, ease: "easeOut" } }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <div
         id={`scrap-item-${scrap.id}`}
-        className={`card ${isSelected ? "selected" : ""}`}
+        className={`card scrap-card-item ${isSelected ? "selected" : ""} ${!isDesktop && isMobileExpanded ? "is-expanded" : ""}`}
         style={{
           padding: "12px",
           marginBottom: "0",
-          border: isSelected ? "2px solid #0071E3" : "1px solid rgba(0,0,0,0.05)",
+          border: isSelected ? "1px solid #0071E3" : undefined,
+          boxShadow: isSelected ? "0 0 0 1px #0071E3" : undefined,
           cursor: "pointer",
-          transition: "all 0.2s ease",
         }}
         onClick={() => (isDesktop ? onSelect() : onToggleMobileExpand?.())}
       >
@@ -413,10 +405,11 @@ const ScrapItem = ({
               !isDesktop && (
                 <button
                   type="button"
-                  style={{ background: "none", border: "none", color: "#C7C7CC", display: "flex" }}
+                  className={`scrap-expand-chevron ${isMobileExpanded ? "is-expanded" : ""}`}
                   aria-label={t("detail.toggleDetails")}
+                  aria-expanded={isMobileExpanded}
                 >
-                  {isMobileExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  <ChevronDown size={20} />
                 </button>
               )
             )}
@@ -465,9 +458,10 @@ const ScrapItem = ({
         {/* 모바일 확장 영역 */}
         {!isDesktop && isMobileExpanded && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            style={{ marginTop: "15px", paddingTop: "15px", borderTop: "1px solid rgba(0,0,0,0.05)" }}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
+            className="scrap-mobile-expanded"
             onClick={(e) => e.stopPropagation()}
           >
             {isEditingMobile ? (
@@ -683,7 +677,7 @@ const ScrapItem = ({
             )}
           </motion.div>
         )}
-      </motion.div>
+      </div>
       <AnimatePresence>
         {isReAnalyzeOpen && (
           <ReAnalyzeDialog scrap={scrap} onClose={() => setIsReAnalyzeOpen(false)} />
