@@ -255,11 +255,37 @@ const MainApp = () => {
     );
   }
 
+  const desktopHeaderActions = (
+    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+      <button
+        type="button"
+        className="desktop-top-action-btn"
+        onClick={() => setIsToolsOpen(true)}
+        title={t("nav.toolsDesktopTitle")}
+        aria-label={t("nav.toolsDesktopTitle")}
+      >
+        <SlidersHorizontal size={15} />
+        <span className="desktop-action-label">{t("nav.tools")}</span>
+      </button>
+      <button
+        type="button"
+        className="desktop-top-action-btn"
+        onClick={logout}
+        title={t("auth.signOut")}
+        aria-label={t("auth.signOut")}
+      >
+        <LogOut size={15} />
+        <span className="desktop-action-label">{t("auth.signOut")}</span>
+      </button>
+      <UserAvatar user={user} size={32} />
+    </div>
+  );
+
   return (
     <div className="app-layout">
       {/* --- Main Content Area --- */}
       <main ref={mainContentRef} className="main-content">
-        <div className="container">
+        <div className={`container ${selectedScrapId ? "has-detail" : ""}`}>
           {/* Mobile Header (Hidden on Desktop) */}
           <header className="flex-between mobile-only" style={{ padding: "10px 0", marginBottom: "20px", alignItems: "center" }}>
             <h1 style={{ fontSize: "24px", fontWeight: "700", letterSpacing: "-0.03em" }}>Oh My Scrap</h1>
@@ -308,54 +334,13 @@ const MainApp = () => {
             </div>
           </header>
 
-          {/* Desktop Header (Hidden on Mobile) */}
-          <div className="desktop-header desktop-only">
-            <h1>Oh My Scrap</h1>
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setIsToolsOpen(true)}
-                style={{
-                  padding: "10px 14px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "7px",
-                  fontSize: "13px"
-                }}
-                title={t("nav.toolsDesktopTitle")}
-              >
-                <SlidersHorizontal size={15} />
-                <span>{t("nav.tools")}</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={logout}
-                style={{
-                  padding: "10px 14px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  fontSize: "13px"
-                }}
-                title={t("auth.signOut")}
-              >
-                <LogOut size={16} />
-                <span>{t("auth.signOut")}</span>
-              </button>
-              <UserAvatar user={user} />
-            </div>
-          </div>
-
           <ScrapList
             viewMode={viewMode}
             setViewMode={setViewMode}
             onAddClick={() => setIsDialogOpen(true)}
             selectedScrapId={selectedScrapId}
             setSelectedScrapId={setSelectedScrapId}
+            desktopHeaderActions={desktopHeaderActions}
           />
 
           <div className="mobile-only mobile-bottom-spacer"></div>

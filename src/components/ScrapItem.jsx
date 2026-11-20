@@ -29,6 +29,7 @@ const ScrapItem = ({
   scrap,
   mode,
   isDesktop,
+  isCompactSplit = false,
   isSelected,
   onSelect,
   onDelete,
@@ -337,13 +338,53 @@ const ScrapItem = ({
   }
 
   // List Mode
+  const visibleTags = (scrap.tags || []).filter((tag) => tag && tag.trim());
+  const displayListTags = isCompactSplit ? visibleTags.slice(0, 2) : visibleTags;
+  const desktopActionButtons = isDesktop ? (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          togglePin(scrap);
+        }}
+        title={isPinned ? t("common.unpin") : t("common.pinToTop")}
+        className="list-action-btn"
+        style={{ color: isPinned ? "var(--accent-color)" : "#A1A1A6" }}
+      >
+        <Pin size={15} />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsReAnalyzeOpen(true);
+        }}
+        title={t("common.reAnalyze")}
+        className="list-action-btn"
+        style={{ color: "var(--accent-color)" }}
+      >
+        <RefreshCw size={15} />
+      </button>
+      <button
+        type="button"
+        onClick={handleDelete}
+        title={t("common.delete")}
+        className="list-action-btn"
+        style={{ color: "#FF3B30" }}
+      >
+        <Trash2 size={16} />
+      </button>
+    </>
+  ) : null;
+
   return (
     <>
       <div
         id={`scrap-item-${scrap.id}`}
-        className={`card scrap-card-item ${isSelected ? "selected" : ""} ${!isDesktop && isMobileExpanded ? "is-expanded" : ""}`}
+        className={`card scrap-card-item ${isCompactSplit ? "scrap-item-compact" : ""} ${isSelected ? "selected" : ""} ${!isDesktop && isMobileExpanded ? "is-expanded" : ""}`}
         style={{
-          padding: "12px",
+          padding: isCompactSplit ? "10px 12px" : "12px",
           marginBottom: "0",
           border: isSelected ? "1px solid #0071E3" : undefined,
           boxShadow: isSelected ? "0 0 0 1px #0071E3" : undefined,
@@ -355,23 +396,25 @@ const ScrapItem = ({
           <img
             src={scrap.thumbnail || "/placeholder.svg"}
             alt="thumb"
-            className="scrap-thumbnail"
+            className={`scrap-thumbnail ${isCompactSplit ? "compact" : ""}`}
             onError={(e) => {
               e.target.src = "/placeholder.svg";
             }}
           />
           <div className="scrap-content">
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: isCompactSplit ? "flex-start" : "center", gap: "6px", minWidth: 0 }}>
               {isPinned && (
-                <span className="pin-badge" title={t("common.pinned")}>
+                <span className="pin-badge" style={isCompactSplit ? { marginTop: "3px" } : undefined} title={t("common.pinned")}>
                   <Pin size={11} />
                 </span>
               )}
-              <h3 className="scrap-title">{scrap.title || t("common.unanalyzedScrap")}</h3>
+              <h3 className={`scrap-title ${isCompactSplit ? "compact-clamp" : ""}`}>
+                {scrap.title || t("common.unanalyzedScrap")}
+              </h3>
             </div>
-            <div className="flex-between" style={{ marginTop: "4px" }}>
+            <div className="flex-between" style={{ marginTop: isCompactSplit ? "6px" : "4px" }}>
               <div style={{ display: "flex", gap: "5px", overflow: "hidden" }}>
-                {scrap.tags?.filter((tag) => tag && tag.trim()).map((tag, index) => (
+                {displayListTags.map((tag, index) => (
                   <button
                     key={`${tag}-${index}`}
                     type="button"
@@ -390,70 +433,49 @@ const ScrapItem = ({
               </span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-            {!scrap.title ? (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: "6px 12px", fontSize: "12px" }}
-                onClick={handleDelayedAnalysis}
-                disabled={isAnalyzing}
-              >
-                {isAnalyzing ? "..." : t("detail.analyzeShort")}
-              </button>
-            ) : (
-              !isDesktop && (
+          {(!isCompactSplit || !scrap.title) && (
+            <div style={{ display: "flex", gap: "4px", alignItems: "center", flexShrink: 0 }}>
+              {!scrap.title ? (
                 <button
                   type="button"
-                  className={`scrap-expand-chevron ${isMobileExpanded ? "is-expanded" : ""}`}
-                  aria-label={t("detail.toggleDetails")}
-                  aria-expanded={isMobileExpanded}
+                  className="btn btn-secondary"
+                  style={{ padding: "6px 12px", fontSize: "12px" }}
+                  onClick={handleDelayedAnalysis}
+                  disabled={isAnalyzing}
                 >
-                  <ChevronDown size={20} />
+                  {isAnalyzing ? "..." : t("detail.analyzeShort")}
                 </button>
-              )
-            )}
-            {isDesktop && (
-              <>
+              ) : (
+                !isDesktop && (
+                  <button
+                    type="button"
+                    className={`scrap-expand-chevron ${isMobileExpanded ? "is-expanded" : ""}`}
+                    aria-label={t("detail.toggleDetails")}
+                    aria-expanded={isMobileExpanded}
+                  >
+                    <ChevronDown size={20} />
+                  </button>
+                )
+              )}
+              {!isCompactSplit && desktopActionButtons}
+              {!isDesktop && !scrap.title && (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    togglePin(scrap);
-                  }}
-                  title={isPinned ? t("common.unpin") : t("common.pinToTop")}
+                  onClick={handleDelete}
+                  title={t("common.delete")}
                   className="list-action-btn"
-                  style={{ color: isPinned ? "var(--accent-color)" : "#A1A1A6" }}
+                  style={{ color: "#FF3B30" }}
                 >
-                  <Pin size={15} />
+                  <Trash2 size={17} />
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsReAnalyzeOpen(true);
-                  }}
-                  title={t("common.reAnalyze")}
-                  className="list-action-btn"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  <RefreshCw size={15} />
-                </button>
-              </>
-            )}
-            {(isDesktop || !scrap.title) && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                title={t("common.delete")}
-                className="list-action-btn"
-                style={{ color: "#FF3B30" }}
-              >
-                <Trash2 size={17} />
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {isCompactSplit && isDesktop && (
+          <div className="scrap-item-hover-actions">{desktopActionButtons}</div>
+        )}
 
         {/* 모바일 확장 영역 */}
         {!isDesktop && isMobileExpanded && (
