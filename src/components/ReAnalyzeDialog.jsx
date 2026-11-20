@@ -12,6 +12,7 @@ import {
 import { analyzeContent } from "../services/gemini";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { LANGUAGE_OPTIONS } from "../i18n/translations";
 
 const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
   const { preferredLanguage, useAi } = useAuth();
@@ -198,22 +199,18 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
             </button>
           </div>
           <div className="language-toggle" title={t("dialog.aiLangTooltip")}>
-            <button
-              type="button"
-              className={`lang-btn ${localLang === "en" ? "active" : ""}`}
-              onClick={() => setLocalLang("en")}
-              disabled={analyzing}
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              className={`lang-btn ${localLang === "ko" ? "active" : ""}`}
-              onClick={() => setLocalLang("ko")}
-              disabled={analyzing}
-            >
-              KO
-            </button>
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.code}
+                type="button"
+                className={`lang-btn ${localLang === opt.code ? "active" : ""}`}
+                aria-pressed={localLang === opt.code}
+                onClick={() => setLocalLang(opt.code)}
+                disabled={analyzing}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 

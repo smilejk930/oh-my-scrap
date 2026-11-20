@@ -27,7 +27,7 @@ const AskArchiveModal = ({ onClose, onSelectScrap, initialQuestion = "" }) => {
   const starterQuestions = useMemo(() => {
     const suggestions = [];
     const hasRecipe = scraps.some(
-      (s) => s.contentType === "recipe" || s.tags?.some((tag) => /recipe|레시피/i.test(tag))
+      (s) => s.contentType === "recipe" || s.tags?.some((tag) => /recipe|레시피|食谱|菜谱/i.test(tag))
     );
     if (hasRecipe) {
       suggestions.push(t("ask.starterRecipes"));

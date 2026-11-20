@@ -12,6 +12,7 @@ import {
 } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { useTranslation } from "../i18n/useTranslation";
+import { LANGUAGE_OPTIONS } from "../i18n/translations";
 import ReAnalyzeDialog from "./ReAnalyzeDialog";
 import {
   X,
@@ -290,22 +291,18 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
               </button>
             </div>
             <div className="language-toggle" title={t("dialog.aiLangTooltip")}>
-              <button
-                type="button"
-                className={`lang-btn ${localLang === "en" ? "active" : ""}`}
-                onClick={() => setLocalLang("en")}
-                disabled={loading}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                className={`lang-btn ${localLang === "ko" ? "active" : ""}`}
-                onClick={() => setLocalLang("ko")}
-                disabled={loading}
-              >
-                KO
-              </button>
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.code}
+                  type="button"
+                  className={`lang-btn ${localLang === opt.code ? "active" : ""}`}
+                  aria-pressed={localLang === opt.code}
+                  onClick={() => setLocalLang(opt.code)}
+                  disabled={loading}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 

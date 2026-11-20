@@ -1,5 +1,5 @@
 import { getProxyBaseUrl, getAuthHeaders, fetchWithTimeout } from "./scraper";
-import { translate } from "../i18n/translations";
+import { normalizeLanguage, translate } from "../i18n/translations";
 
 const ANALYZE_TIMEOUT_MS = 60000;
 const VIDEO_ANALYZE_TIMEOUT_MS = 90000;
@@ -8,12 +8,13 @@ const ASK_TIMEOUT_MS = 35000;
 /**
  * URL의 본문 내용을 Cloudflare Worker(/analyze)를 통해 분석하여 요약본과 태그를 생성합니다.
  * @param {string} content - URL에서 추출된 텍스트 내용 (videoUrl이 있으면 보조 컨텍스트로 활용)
- * @param {string} language - 분석 결과 언어 ('en' or 'ko')
+ * @param {string} language - 분석 결과 언어 ('en', 'ko', or 'zh')
  * @param {string|null} videoUrl - YouTube 영상 URL. 지정 시 Gemini의 비디오 이해 기능으로 영상 자체를 분석.
  * @param {{ contentTypeHint?: string | null, lowResVideo?: boolean }} [options]
  * @returns {Promise<{title: string, tags: string[], contentType: string, fullSummary: string}>}
  */
 export const analyzeContent = async (content, language = "en", videoUrl = null, options = {}) => {
+  const normalizedLang = normalizeLanguage(language);
   const safeContent = content && content.trim() ? content.substring(0, 12000) : "No content found on this page.";
 
   try {
@@ -30,7 +31,7 @@ export const analyzeContent = async (content, language = "en", videoUrl = null, 
         },
         body: JSON.stringify({
           content: safeContent,
-          language,
+          language: normalizedLang,
           videoUrl,
           contentTypeHint: options?.contentTypeHint || null,
           lowResVideo: Boolean(options?.lowResVideo),
@@ -64,11 +65,11 @@ export const analyzeContent = async (content, language = "en", videoUrl = null, 
   } catch (error) {
     console.error("Gemini Analysis completely failed:", error);
     return {
-      title: translate(language, "service.analysisFailedTitle"),
-      tags: [translate(language, "service.analysisFailedTag")],
+      title: translate(normalizedLang, "service.analysisFailedTitle"),
+      tags: [translate(normalizedLang, "service.analysisFailedTag")],
       contentType: "general",
-      fullSummary: translate(language, "service.analysisFailedSummary", {
-        reason: error.message?.substring(0, 100) || translate(language, "service.checkConnection"),
+      fullSummary: translate(normalizedLang, "service.analysisFailedSummary", {
+        reason: error.message?.substring(0, 100) || translate(normalizedLang, "service.checkConnection"),
       }),
     };
   }
@@ -82,16 +83,28 @@ export const analyzeContent = async (content, language = "en", videoUrl = null, 
  * @returns {Promise<{answer: string, matchedIds: string[], followUpSuggestions: string[]}>}
  */
 export const askMyScraps = async (question, scraps = [], language = "en") => {
+  const normalizedLang = normalizeLanguage(language);
   const cleanQuestion = typeof question === "string" ? question.trim() : "";
   if (!cleanQuestion) {
-    throw new Error(translate(language, "service.enterQuestion"));
+    throw new Error(translate(normalizedLang, "service.enterQuestion"));
   }
 
   // 질문 토큰과 일치하는 스크랩에 가중치를 부여하고 최신 항목을 함께 포함해 최대 120개 선별
-  const tokens = cleanQuestion
+  const rawTokens = cleanQuestion
     .toLowerCase()
-    .split(/[\s,?.!]+/)
+    .split(/[\s,?.!，。？！、；：""''（）()【】[\]]+/)
     .filter((t) => t.length >= 2);
+  const tokenSet = new Set(rawTokens);
+  for (const seg of rawTokens) {
+    const hanMatches = seg.match(/[\u4e00-\u9fff]{2,}/g);
+    if (!hanMatches) continue;
+    for (const han of hanMatches) {
+      for (let i = 0; i < han.length - 1; i++) {
+        tokenSet.add(han.slice(i, i + 2));
+      }
+    }
+  }
+  const tokens = [...tokenSet];
 
   const scored = scraps.map((scrap, idx) => {
     const haystack = [
@@ -138,7 +151,7 @@ export const askMyScraps = async (question, scraps = [], language = "en") => {
       },
       body: JSON.stringify({
         question: cleanQuestion,
-        language,
+        language: normalizedLang,
         scraps: selected,
       }),
     },
@@ -158,7 +171,7 @@ export const askMyScraps = async (question, scraps = [], language = "en") => {
 
   const data = await response.json();
   if (typeof data?.answer !== "string") {
-    throw new Error(translate(language, "service.invalidAskResponse"));
+    throw new Error(translate(normalizedLang, "service.invalidAskResponse"));
   }
 
   return {

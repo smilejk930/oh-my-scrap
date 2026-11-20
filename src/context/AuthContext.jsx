@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth, googleProvider, db } from "../firebase/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
-import { normalizeLanguage } from "../i18n/translations";
+import { normalizeLanguage, SUPPORTED_LANGUAGES } from "../i18n/translations";
 
 const LANGUAGE_STORAGE_KEY = "oms_language";
 
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
         unsubscribeSettings = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data?.language === "en" || data?.language === "ko") {
+            if (SUPPORTED_LANGUAGES.includes(data?.language)) {
               writeCachedLanguage(data.language);
               setCachedLanguage(data.language);
             }
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      document.documentElement.lang = preferredLanguage;
+      document.documentElement.lang = preferredLanguage === "zh" ? "zh-CN" : preferredLanguage;
     }
   }, [preferredLanguage]);
 

@@ -1,5 +1,5 @@
 import { auth } from "../firebase/firebase";
-import { translate } from "../i18n/translations";
+import { normalizeLanguage, translate } from "../i18n/translations";
 
 const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const YOUTUBE_AI_MAX_SECONDS = 180; // 3분 초과 영상은 자막(Transcript) 추출 기반 분석으로 전환
@@ -381,7 +381,7 @@ export const fetchYoutubeTranscript = async (videoId, language = "en") => {
   if (!videoId) return null;
   try {
     const baseUrl = getProxyBaseUrl();
-    const lang = language === "ko" ? "ko" : "en";
+    const lang = normalizeLanguage(language);
     const apiUrl = `${baseUrl}/youtube-transcript?videoId=${encodeURIComponent(videoId)}&lang=${lang}`;
     const headers = await getAuthHeaders();
     const res = await fetchWithTimeout(apiUrl, { headers }, TRANSCRIPT_TIMEOUT_MS);

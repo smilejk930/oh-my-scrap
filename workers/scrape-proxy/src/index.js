@@ -28,6 +28,21 @@ const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.
 const YT_VIDEO_ID_ONLY_REGEX = /^[a-zA-Z0-9_-]{11}$/;
 const YT_ALLOWED_TRANSCRIPT_HOSTS = new Set(["www.youtube.com", "youtube.com", "timedtext.youtube.com"]);
 const ALLOWED_CONTENT_TYPES = new Set(["general", "recipe", "tech", "video", "place", "product"]);
+const ALLOWED_LANGUAGES = new Set(["en", "ko", "zh"]);
+const normalizeLanguage = (lang, fallback = "en") => {
+  if (typeof lang !== "string") return fallback;
+  const lower = lang.trim().toLowerCase();
+  if (ALLOWED_LANGUAGES.has(lower)) return lower;
+  if (lower.startsWith("zh-")) return "zh";
+  if (lower.startsWith("ko-")) return "ko";
+  if (lower.startsWith("en-")) return "en";
+  return fallback;
+};
+const LANGUAGE_LABEL_MAP = {
+  en: "English",
+  ko: "Korean (한국어)",
+  zh: "Simplified Chinese (简体中文)",
+};
 const TEXT_GEMINI_MODELS = [
   "gemini-4-hydrogen",
   "gemini-3.8-flash",
@@ -529,6 +544,14 @@ const decodeHtmlBuffer = (buffer, contentTypeHeader = "") => {
     }
   }
 
+  if (charset === "gbk" || charset === "gb2312" || charset === "gb18030") {
+    try {
+      return new TextDecoder("gb18030").decode(buffer);
+    } catch {
+      // fallback to utf-8
+    }
+  }
+
   return new TextDecoder("utf-8", { fatal: false }).decode(buffer);
 };
 
@@ -652,7 +675,7 @@ const INNERTUBE_TRANSCRIPT_CLIENTS = [
     buildClient: (lang) => ({
       clientName: "ANDROID",
       clientVersion: "20.10.38",
-      hl: lang,
+      hl: lang === "zh" ? "zh-CN" : lang,
     }),
   },
   {
@@ -663,7 +686,7 @@ const INNERTUBE_TRANSCRIPT_CLIENTS = [
       clientVersion: "20.10.4",
       deviceMake: "Apple",
       deviceModel: "iPhone16,2",
-      hl: lang,
+      hl: lang === "zh" ? "zh-CN" : lang,
     }),
   },
 ];
@@ -676,7 +699,12 @@ const rankCaptionTracks = (tracks, preferredLang = "ko") => {
   const validTracks = tracks.filter((t) => typeof t?.baseUrl === "string" && t.baseUrl.trim());
   if (validTracks.length === 0) return [];
 
-  const langOrder = preferredLang === "en" ? ["en", "ko"] : ["ko", "en"];
+  const langOrderMap = {
+    en: ["en", "ko", "zh"],
+    ko: ["ko", "en", "zh"],
+    zh: ["zh-hans", "zh-cn", "zh", "en", "ko"],
+  };
+  const langOrder = langOrderMap[preferredLang] || ["ko", "en", "zh"];
   const matchesLang = (track, lang) => {
     const code = String(track?.languageCode || "").toLowerCase();
     return code === lang || code.startsWith(`${lang}-`);
@@ -806,7 +834,7 @@ const handleYoutubeTranscript = async (reqUrl, corsHeaders, ctx) => {
   if (!YT_VIDEO_ID_ONLY_REGEX.test(videoId)) {
     return jsonResponse({ error: "Invalid videoId" }, 400, corsHeaders);
   }
-  const lang = reqUrl.searchParams.get("lang") === "en" ? "en" : "ko";
+  const lang = normalizeLanguage(reqUrl.searchParams.get("lang"), "ko");
 
   const cacheKey = new Request(
     `${reqUrl.origin}/youtube-transcript?videoId=${encodeURIComponent(videoId)}&lang=${lang}`,
@@ -1055,8 +1083,7 @@ const handleAnalyze = async (request, env, corsHeaders) => {
   }
 
   const rawContent = typeof body?.content === "string" ? body.content : "";
-  const language = body?.language === "ko" ? "ko" : "en";
-  const isKorean = language === "ko";
+  const language = normalizeLanguage(body?.language, "en");
   const contentTypeHint = ALLOWED_CONTENT_TYPES.has(body?.contentTypeHint) ? body.contentTypeHint : null;
   const lowResVideo = Boolean(body?.lowResVideo);
 
@@ -1074,8 +1101,8 @@ const handleAnalyze = async (request, env, corsHeaders) => {
       ? rawContent.substring(0, 12000).replace(/<\/?document>/gi, "")
       : "No content found on this page.";
 
-  const templatesGuide = isKorean
-    ? `
+  const templatesGuideByLang = {
+    ko: `
     contentType 분류 기준 및 fullSummary 평문 템플릿(마크다운 기호 **, ##, \`\`\` 금지, 줄바꿈은 \\n 사용):
     1) "recipe": 음식/요리 레시피일 때 (태그에 "레시피" 포함)
        [요리 소개]
@@ -1140,8 +1167,74 @@ const handleAnalyze = async (request, env, corsHeaders) => {
        - 단점 또는 고려사항
 
     6) "general": 위 5가지에 해당하지 않는 일반 뉴스/에세이/포스트일 때
-       대괄호 헤더 없이 핵심 내용을 2~4문장의 깔끔한 일반 문장으로 요약합니다.`
-    : `
+       대괄호 헤더 없이 핵심 내용을 2~4문장의 깔끔한 일반 문장으로 요약합니다.`,
+    zh: `
+    contentType 分类标准及 fullSummary 纯文本模板（禁止使用 **、##、\`\`\` 等 Markdown 符号，换行请使用 \\n）：
+    1) "recipe": 美食/烹饪食谱（标签中包含 "食谱"）
+       [菜品介绍]
+       用一两句话介绍这道菜品。
+
+       [食材]
+       - 食材1: 用量
+       - 食材2: 用量
+
+       [制作步骤]
+       1. 第一步
+       2. 第二步
+       （禁止编造原文中没有的食材或步骤，用量未知写 '适量'）
+
+    2) "tech": 软件开发/编程/架构/GitHub/AI 技术文章
+       [核心问题]
+       用1~2句话总结该文章或工具解决的核心问题。
+
+       [解决方案与架构]
+       用1~2句话说明核心实现方式或工作原理。
+
+       [核心要点]
+       - 核心概念、命令或注意事项 1
+       - 核心要点 2
+
+       [一句话总结]
+       一句话总结实际应用价值或结论。
+
+    3) "video": YouTube 视频（直接视频理解或字幕分析；若主要内容为烹饪食谱则优先选择 "recipe"）
+       [三点核心摘要]
+       - 核心要点 1
+       - 核心要点 2
+       - 核心要点 3
+
+       [时间线摘要]
+       - [MM:SS] 分段核心内容（字幕或视频中如有时间信息务必保留 [MM:SS] 格式，否则按顺序以 '- 内容' 列出）
+
+       [核心洞见]
+       用一两句话概括视频传达的核心结论。
+
+    4) "place": 餐厅/咖啡馆/旅行地/展览或线下场所介绍
+       [地点介绍]
+       用一两句话介绍该地点。
+
+       [位置与特色]
+       - 原文中明确提及的位置或氛围特色
+
+       [推荐与贴士]
+       - 推荐项目或到访贴士
+
+    5) "product": 产品评测/对比/选购指南/服务介绍
+       [产品概述]
+       用1~2句话概括产品定位与适用人群。
+
+       [核心规格与特点]
+       - 核心规格或主要功能（仅填写原文中确认的价格与数值）
+
+       [优点]
+       - 主要优势
+
+       [缺点与注意事项]
+       - 局限性或需注意的事项
+
+    6) "general": 不属于以上5类的普通新闻/随笔/文章
+       不使用方括号标题，用2~4句简洁流畅的中文纯文本概括核心内容。`,
+    en: `
     Classify contentType and format fullSummary as plain text (NO markdown symbols like **, ##, \`\`\`; use \\n for line breaks):
     1) "recipe": Food/cooking recipes (include "Recipe" in tags)
        [About]
@@ -1206,7 +1299,15 @@ const handleAnalyze = async (request, env, corsHeaders) => {
        - Limitation or caveat
 
     6) "general": General news, essays, or links not matching the 5 types above
-       Write 2-4 concise sentences of plain prose without bracket headers.`;
+       Write 2-4 concise sentences of plain prose without bracket headers.`,
+  };
+  const templatesGuide = templatesGuideByLang[language] || templatesGuideByLang.en;
+
+  const tagGuidanceMap = {
+    en: "Tags should be common searchable keywords.",
+    ko: "태그는 사회적으로 통용되는 검색하기 쉬운 키워드 위주로 작성하세요.",
+    zh: "标签请使用常见、易于搜索的通用中文关键词。",
+  };
 
   const systemInstructionText = `
     You are a content summarization assistant.
@@ -1225,8 +1326,8 @@ const handleAnalyze = async (request, env, corsHeaders) => {
     - The 'title' must be very intuitive and within 40 characters.
     - Include up to 3 tags in 'tags'.
     - Return ONLY the JSON object.
-    - All output (title, tags, fullSummary) must be in ${isKorean ? "Korean (한국어)" : "English"}.
-    - ${isKorean ? "태그는 사회적으로 통용되는 검색하기 쉬운 키워드 위주로 작성하세요." : "Tags should be common searchable keywords."}
+    - All output (title, tags, fullSummary) must be in ${LANGUAGE_LABEL_MAP[language] || "English"}.
+    - ${tagGuidanceMap[language] || tagGuidanceMap.en}
     ${contentTypeHint ? `- Hint: source appears to be "${contentTypeHint}" unless content strongly indicates another specific type (such as "recipe").` : ""}
 
     ${templatesGuide}
@@ -1305,15 +1406,24 @@ const handleAsk = async (request, env, corsHeaders) => {
   }
 
   const question = rawQuestion.substring(0, 500).replace(/<\/?(?:question|archive)>/gi, "");
-  const isKorean = /[가-힣]/.test(question) || body?.language === "ko";
+  const fallbackLang = normalizeLanguage(body?.language, "en");
+  const responseLang = /[가-힣]/.test(question)
+    ? "ko"
+    : /[\u4e00-\u9fff]/.test(question)
+      ? "zh"
+      : fallbackLang;
   const rawScraps = Array.isArray(body?.scraps) ? body.scraps.slice(0, 120) : [];
+
+  const emptyArchiveAnswerMap = {
+    ko: "아직 보관함에 저장된 스크랩이 없어 답변을 찾을 수 없습니다.",
+    zh: "收藏夹中还没有已保存的内容，无法为您查找答案。",
+    en: "Your archive has no saved scraps yet to search through.",
+  };
 
   if (rawScraps.length === 0) {
     return jsonResponse(
       {
-        answer: isKorean
-          ? "아직 보관함에 저장된 스크랩이 없어 답변을 찾을 수 없습니다."
-          : "Your archive has no saved scraps yet to search through.",
+        answer: emptyArchiveAnswerMap[responseLang] || emptyArchiveAnswerMap.en,
         matchedIds: [],
         followUpSuggestions: [],
       },
@@ -1368,7 +1478,7 @@ const handleAsk = async (request, env, corsHeaders) => {
       "followUpSuggestions": ["2 short relevant follow-up questions in the same language"]
     }
 
-    Language rule: Respond in ${isKorean ? "Korean (한국어)" : "English"}.
+    Language rule: Respond in ${LANGUAGE_LABEL_MAP[responseLang] || "English"}.
   `;
 
   const userParts = [

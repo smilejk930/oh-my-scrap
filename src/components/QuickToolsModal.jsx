@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { X, Smartphone, Bookmark, Copy, Check, KeyRound, Download, Globe } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { LANGUAGE_OPTIONS } from "../i18n/translations";
 
 const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
   const { user } = useAuth();
@@ -101,22 +102,17 @@ const QuickToolsModal = ({ onClose, deferredPrompt, onInstallPwa }) => {
               role="group"
               aria-label={t("tools.languageTitle")}
             >
-              <button
-                type="button"
-                className={`lang-btn ${language === "en" ? "active" : ""}`}
-                aria-pressed={language === "en"}
-                onClick={() => setLanguage("en")}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                className={`lang-btn ${language === "ko" ? "active" : ""}`}
-                aria-pressed={language === "ko"}
-                onClick={() => setLanguage("ko")}
-              >
-                KO
-              </button>
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.code}
+                  type="button"
+                  className={`lang-btn ${language === opt.code ? "active" : ""}`}
+                  aria-pressed={language === opt.code}
+                  onClick={() => setLanguage(opt.code)}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
