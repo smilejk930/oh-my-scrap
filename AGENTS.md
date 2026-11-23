@@ -21,7 +21,7 @@
   - [src/components/README.md](./src/components/README.md) — 스크랩 추가·재분석·Ask AI·퀵 도구 모달, 리스트/카드·2단 분할 뷰(`ScrapList`, `ScrapDetailPane`, `ScrapItem`), 도메인별 스마트 요약(`SmartSummaryView`), 타임캡슐(`RediscoverBanner`)
   - [src/context/README.md](./src/context/README.md) — `AuthContext`(인증·사용자 설정) 및 `ScrapContext`(실시간 구독·중복 감지·문서 변이)
   - [src/firebase/README.md](./src/firebase/README.md) — Firebase 앱 초기화 싱글턴(`auth`, `googleProvider`, `db`)
-  - [src/i18n/README.md](./src/i18n/README.md) — 한·영·중(`en`, `ko`, `zh`) 번역 사전 및 `useTranslation` 훅
+  - [src/i18n/README.md](./src/i18n/README.md) — 영·일·한·중(`en`, `ja`, `ko`, `zh`) 번역 사전 및 `useTranslation` 훅
   - [src/services/README.md](./src/services/README.md) — 클라이언트 스크래퍼(`scraper.js`) 및 Worker AI 호출(`gemini.js`)
 - [workers/scrape-proxy/README.md](./workers/scrape-proxy/README.md) — Cloudflare Workers 엔드포인트, 보안·SSRF·인코딩·AI 모델 폴백 정책
 - `.agents/skills/firebase-deploy/SKILL.md` — Firebase 배포 사전 검증 및 승인 절차
@@ -101,7 +101,7 @@
 ## 5. 코딩·다국어(i18n)·UI 컨벤션
 
 - **ESLint 규칙 (`eslint.config.js`)**: `@eslint/js` recommended, `eslint-plugin-react-hooks`(flat recommended), `eslint-plugin-react-refresh`가 적용됩니다. `no-unused-vars`는 `^[A-Z_]|^motion$` 패턴만 예외이므로 미사용 변수·임포트를 남기지 마세요.
-- **다국어(i18n) 동기화**: 지원 언어는 `en`, `ko`, `zh`입니다(`src/i18n/translations.js`). UI 텍스트나 에러 메시지를 추가·변경할 때는 반드시 `en`, `ko`, `zh` 3개 사전을 모두 업데이트하세요. 새 언어를 추가할 경우 `firestore.rules`의 `users/{userId}` `language` 허용 목록 및 Worker 프롬프트/자막 언어 처리도 함께 검토해야 합니다.
+- **다국어(i18n) 동기화**: 지원 언어는 `en`, `ja`, `ko`, `zh`입니다(`src/i18n/translations.js`). UI 텍스트나 에러 메시지를 추가·변경할 때는 반드시 `en`, `ja`, `ko`, `zh` 4개 사전을 모두 업데이트하세요. 새 언어를 추가할 경우 `firestore.rules`의 `users/{userId}` `language` 허용 목록 및 Worker 프롬프트/자막 언어 처리도 함께 검토해야 합니다.
 - **스타일 및 반응형 UI**:
   - Tailwind 등 유틸리티 프레임워크 없이 `src/index.css`와 CSS 변수로 스타일링합니다.
   - 데스크톱(`>= 769px`) 독립 스크롤 2단 분할(`ScrapList` + `ScrapDetailPane`, `localStorage` 키 `oms_desktop_list_width`)과 모바일 확장 카드·하단 내비게이션 동작을 모두 고려하세요.

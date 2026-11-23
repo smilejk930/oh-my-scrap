@@ -24,7 +24,7 @@ Oh My Scrap is an **AI-powered personal archiving tool** designed to help you ca
 
 #### 3. AI-Powered Analysis (Gemini)
 - **AI Toggle (ON/OFF)**: You can choose whether to use AI for every scrap. Turn it OFF for quick link saving, or keep it ON for deep analysis.
-- **Multilingual Support**: Choose your preferred language (**Korean/English/Chinese**) for AI summaries and insights.
+- **Multilingual Support**: Choose your preferred language (**English/Japanese/Korean/Chinese**) for AI summaries and insights.
 - **Automatic Summarization**: Powered by Google’s Gemini AI, the app provides a concise summary and extracts relevant tags.
 
 #### 4. YouTube Video Understanding
@@ -59,7 +59,7 @@ Oh My Scrap은 웹상의 수많은 정보들을 단순히 저장하는 것을 �
 
 #### 3. AI 기반 내용 분석 및 요약 (Gemini)
 - **AI 분석 ON/OFF 토글**: URL 등록 시 AI 분석 사용 여부를 선택할 수 있습니다. 단순 링크 저장이 필요할 땐 OFF, 깊이 있는 분석이 필요할 땐 AI 기능을 활용하세요.
-- **다국어 요약 지원**: 요약 결과 언어를 **한국어, 영어 또는 중국어**로 자유롭게 설정할 수 있습니다.
+- **다국어 요약 지원**: 요약 결과 언어를 **영어, 일본어, 한국어 또는 중국어**로 자유롭게 설정할 수 있습니다.
 - **자동 핵심 요약**: Google Gemini AI가 스크랩한 페이지의 내용을 직접 읽고 핵심 내용을 분석하여 태그와 함께 제공합니다.
 
 #### 4. YouTube 영상 분석 최적화
@@ -93,7 +93,7 @@ Oh My Scrap은 Firebase Authentication(Google OAuth), Cloud Firestore(`asia-nort
 - `[eslint.config.js:default]` — `dist`를 제외하고 `**/*.{js,jsx}`를 대상으로 `@eslint/js` recommended, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh` 규칙을 적용하는 ESLint Flat Config입니다(`no-unused-vars`는 `^[A-Z_]|^motion$` 패턴을 제외한 미사용 변수를 에러로 처리).
 - `[firestore.rules:cloud.firestore]` — `/databases/{database}/documents/scraps/{scrapId}` 및 `/databases/{database}/documents/users/{userId}`에 대한 Firestore v2 보안 규칙입니다:
   - `/scraps/{scrapId}` `read`/`delete`는 `request.auth != null && request.auth.uid == resource.data.userId`를 요구합니다. `create`는 `request.resource.data.userId == request.auth.uid`, 허용 필드 집합(`userId`, `url`, `title`, `originalTitle`, `thumbnail`, `tags`, `fullSummary`, `contentType`, `isPinned`, `isRead`, `userNote`, `checkedItems`, `createdAt`), `http(s)://` URL 및 필드 타입·크기(`isValidScrapFields`)를 검증합니다. `update`는 `userId`·`url` 불변성과 변경 가능 키 제한(`title`, `originalTitle`, `thumbnail`, `tags`, `fullSummary`, `contentType`, `isPinned`, `isRead`, `userNote`, `checkedItems`)을 강제합니다.
-  - `/users/{userId}`는 `request.auth != null && request.auth.uid == userId`를 요구하며, 허용 키(`language` ∈ `['en', 'ko', 'zh']`, `useAi` ∈ `bool`)만 생성·수정할 수 있습니다.
+  - `/users/{userId}`는 `request.auth != null && request.auth.uid == userId`를 요구하며, 허용 키(`language` ∈ `['en', 'ja', 'ko', 'zh']`, `useAi` ∈ `bool`)만 생성·수정할 수 있습니다.
 - `[firebase.json:firestore]` — `asia-northeast3` 리전의 `(default)` Firestore 데이터베이스에 `firestore.rules`와 `firestore.indexes.json`을 연결합니다.
 - `[firebase.json:hosting]` — `dist` 정적 빌드 결과물을 서빙하며, SPA 리라이트(`** -> /index.html`), 전역 보안 헤더, `/index.html`·`/sw.js`·`/manifest.json`(`no-cache, no-store, must-revalidate`) 및 `/assets/**`(`public, max-age=31536000, immutable`) 캐시 헤더를 설정합니다.
 - `[firebase.json:auth]` — Google OAuth 로그인 공급자(`providers.googleSignIn`)의 브랜드 표시 이름(`oAuthBrandDisplayName`)과 지원 이메일(`supportEmail`)을 정의합니다.
@@ -104,7 +104,7 @@ Oh My Scrap은 Firebase Authentication(Google OAuth), Cloud Firestore(`asia-nort
   - `src/components`: [./src/components/README.md](./src/components/README.md) — 스크랩 추가·재분석 다이얼로그, 보관함 뷰, 도메인별 스마트 요약 뷰, Ask AI 모달, 타임캡슐 배너, 퀵 도구 모달을 제공합니다.
   - `src/context`: [./src/context/README.md](./src/context/README.md) — Firebase Auth 상태·사용자 설정(`AuthProvider`, `useAuth`) 및 스크랩 실시간 상태·변이·중복 감지 컨텍스트(`ScrapProvider`, `useScraps`)를 제공합니다.
   - `src/firebase`: [./src/firebase/README.md](./src/firebase/README.md) — Firebase 앱 초기화 및 싱글턴 핸들(`auth`, `googleProvider`, `db`)을 내보냅니다.
-  - `src/i18n`: [./src/i18n/README.md](./src/i18n/README.md) — 한·영·중 다국어 번역 사전(`TRANSLATIONS`, `translate`, `normalizeLanguage`)과 React 번역 훅(`useTranslation`)을 제공합니다.
+  - `src/i18n`: [./src/i18n/README.md](./src/i18n/README.md) — 영·일·한·중 다국어 번역 사전(`TRANSLATIONS`, `translate`, `normalizeLanguage`)과 React 번역 훅(`useTranslation`)을 제공합니다.
   - `src/services`: [./src/services/README.md](./src/services/README.md) — URL 정규화·메타데이터·본문·자막 스크래퍼(`scrapeUrl`)와 인증된 Worker AI 분석·보관함 질의응답 클라이언트(`analyzeContent`, `askMyScraps`)를 제공합니다.
 - `workers/scrape-proxy`: [./workers/scrape-proxy/README.md](./workers/scrape-proxy/README.md) — Origin/Firebase Auth JWT 검증, SSRF 방어, YouTube 자막 추출(`/youtube-transcript`), 도메인별 분석(`/analyze`), 보관함 질의응답(`/ask`), `GEMINI_API_KEY`/`YOUTUBE_API_KEY` 시크릿 격리를 수행하는 Cloudflare Workers 프록시 서버입니다.
 

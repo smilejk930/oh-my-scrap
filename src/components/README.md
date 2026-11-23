@@ -12,7 +12,7 @@ URL 스크랩의 추가(중복 감지·클립보드 제안 포함), 재분석, �
 - `[SmartSummaryView.jsx:SmartSummaryView]` — `contentType`(`recipe`, `tech`, `video`, `place`, `product`, `general`) 및 `[섹션]` 구조를 파싱해(`contentType` 누락·`"general"` 시 `[SmartSummaryView.jsx:inferContentTypeFromSummary]`로 섹션 헤더 기반 타입 추론) 레시피 체크리스트(Firestore `checkedItems` 동기화)와 `[MM:SS]`/`[H:MM:SS]` YouTube 타임스탬프 필(YouTube URL은 클릭 시 해당 시점 이동, 그 외는 정적 배지)을 렌더링합니다.
 - `[AskArchiveModal.jsx:AskArchiveModal]` — 보관함 전체에 자연어 질문을 던지고 답변·출처 스크랩 카드·후속 질문을 표시하는 AI Q&A 모달(`{ onClose, onSelectScrap, initialQuestion }`)입니다.
 - `[RediscoverBanner.jsx:RediscoverBanner]` — 1주(6~8일)/1개월(28~32일)/3개월(85~95일)/1년(360~370일) 전 타임캡슐 또는 날짜 해시 기반 결정적 추천 스크랩을 표시하고 순차 셔플(`offset`) 및 일일 닫기를 지원하는 배너(`{ scraps, onSelectScrap }`)입니다.
-- `[QuickToolsModal.jsx:QuickToolsModal]` — 언어 설정(English/한국어/中文, 앱 UI 및 AI 기본 언어 연동), PWA 설치/모바일 Share Sheet 안내, 드래그·복사용 데스크톱 북마클릿, 개인 UID 복사 UI를 제공하는 모달(`{ onClose, deferredPrompt, onInstallPwa }`)입니다.
+- `[QuickToolsModal.jsx:QuickToolsModal]` — 언어 설정(English/日本語/한국어/中文, 앱 UI 및 AI 기본 언어 연동), PWA 설치/모바일 Share Sheet 안내, 드래그·복사용 데스크톱 북마클릿, 개인 UID 복사 UI를 제공하는 모달(`{ onClose, deferredPrompt, onInstallPwa }`)입니다.
 
 ## Invariants
 - `[AddScrapDialog.jsx:AddScrapDialog]` — `duplicateScrap`이 감지되면 `allowDuplicate`를 명시적으로 허용하기 전까지 중복 제출을 차단하고 기존 항목 보기·재분석(`<ReAnalyzeDialog />`)·무시 저장 선택지를 제공합니다. 저장 완료 후 1,400ms 동안 프리뷰 카드를 표시한 뒤 `onClose()`를 호출합니다.
