@@ -34,6 +34,7 @@ const ScrapItem = ({
   onSelect,
   onDelete,
   onTagClick,
+  activeTag = null,
   isMobileExpanded = false,
   onToggleMobileExpand,
 }) => {
@@ -300,17 +301,26 @@ const ScrapItem = ({
                 <span style={{ fontSize: "12px", color: "#86868B", whiteSpace: "nowrap" }}>{dateStr}</span>
                 <div style={{ display: "flex", gap: "5px", overflow: "hidden", flex: 1 }}>
                   {scrap.tags?.filter((tag) => tag && tag.trim()).slice(0, 3).map((tag, index) => (
-                    <button
-                      key={`${tag}-${index}`}
-                      type="button"
-                      className="item-tag-pill"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onTagClick?.(tag);
-                      }}
-                    >
-                      #{tag}
-                    </button>
+                    isDesktop ? (
+                      <button
+                        key={`${tag}-${index}`}
+                        type="button"
+                        className="item-tag-pill"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTagClick?.(tag);
+                        }}
+                      >
+                        #{tag}
+                      </button>
+                    ) : (
+                      <span
+                        key={`${tag}-${index}`}
+                        className="item-tag-pill static"
+                      >
+                        #{tag}
+                      </span>
+                    )
                   ))}
                 </div>
               </div>
@@ -415,17 +425,26 @@ const ScrapItem = ({
             <div className="flex-between" style={{ marginTop: isCompactSplit ? "6px" : "4px" }}>
               <div style={{ display: "flex", gap: "5px", overflow: "hidden" }}>
                 {displayListTags.map((tag, index) => (
-                  <button
-                    key={`${tag}-${index}`}
-                    type="button"
-                    className="item-tag-pill small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTagClick?.(tag);
-                    }}
-                  >
-                    #{tag}
-                  </button>
+                  isDesktop ? (
+                    <button
+                      key={`${tag}-${index}`}
+                      type="button"
+                      className="item-tag-pill small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTagClick?.(tag);
+                      }}
+                    >
+                      #{tag}
+                    </button>
+                  ) : (
+                    <span
+                      key={`${tag}-${index}`}
+                      className="item-tag-pill small static"
+                    >
+                      #{tag}
+                    </span>
+                  )
                 ))}
               </div>
               <span style={{ fontSize: "11px", color: "#86868B", marginLeft: "10px", flexShrink: 0 }}>
@@ -567,6 +586,33 @@ const ScrapItem = ({
               </form>
             ) : (
               <>
+                {visibleTags.length > 0 && (
+                  <div className="mobile-expanded-tags">
+                    {visibleTags.map((tag, index) => {
+                      const isTagActive = Boolean(
+                        activeTag && activeTag.toLowerCase() === tag.toLowerCase()
+                      );
+                      return (
+                        <button
+                          key={`${tag}-${index}`}
+                          type="button"
+                          className={`detail-tag-chip ${isTagActive ? "active" : ""}`}
+                          onClick={() => onTagClick?.(tag)}
+                          title={
+                            isTagActive
+                              ? t("list.clearTagFilter", { tag })
+                              : t("detail.filterByTag", { tag })
+                          }
+                          aria-pressed={isTagActive}
+                        >
+                          <span>#{tag}</span>
+                          {isTagActive && <X size={11} aria-hidden="true" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <SmartSummaryView scrap={scrap} compact />
 
                 {/* 모바일 내 메모 */}

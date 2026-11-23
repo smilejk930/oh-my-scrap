@@ -63,6 +63,7 @@ const ScrapList = ({
   const [mobileFocusTick, setMobileFocusTick] = useState(0);
   const prevMobileExpandedIdRef = useRef(null);
   const forceMobileScrollIdRef = useRef(null);
+  const mobileFilterAnchorRef = useRef(null);
 
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= DESKTOP_BREAKPOINT : true
@@ -152,6 +153,17 @@ const ScrapList = ({
     return [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [scraps]);
 
+  const orderedTagStats = useMemo(() => {
+    if (!selectedTag) return tagStats;
+    const selectedLower = selectedTag.toLowerCase();
+    const activeItem = tagStats.find((item) => item.lower === selectedLower);
+    const rest = tagStats.filter((item) => item.lower !== selectedLower);
+    if (activeItem) {
+      return [activeItem, ...rest];
+    }
+    return [{ label: selectedTag, lower: selectedLower, count: 0 }, ...rest];
+  }, [tagStats, selectedTag]);
+
   // PC 마우스 휠 가로 스크롤 및 좌/우 오버플로 화살표 상태 동기화
   useEffect(() => {
     const el = tagBarRef.current;
@@ -195,7 +207,17 @@ const ScrapList = ({
       el.removeEventListener("wheel", handleWheel);
       observer?.disconnect();
     };
-  }, [loading, tagStats.length, showAllTags, isDesktop, effectiveDetailExpanded]);
+  }, [loading, tagStats.length, selectedTag, showAllTags, isDesktop, effectiveDetailExpanded]);
+
+  useEffect(() => {
+    if (!selectedTag) return;
+    const el = tagBarRef.current;
+    if (!el) return;
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ left: 0, top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
+  }, [selectedTag]);
 
   const pinnedCount = useMemo(
     () => scraps.filter((s) => Boolean(s.isPinned)).length,
@@ -250,6 +272,27 @@ const ScrapList = ({
   useLayoutEffect(() => {
     filteredScrapsRef.current = filteredScraps;
   }, [filteredScraps]);
+
+  useLayoutEffect(() => {
+    const anchor = mobileFilterAnchorRef.current;
+    if (!anchor) return;
+    mobileFilterAnchorRef.current = null;
+
+    if (isDesktop || viewMode !== "list" || mobileExpandedId !== anchor.id) {
+      return;
+    }
+
+    const el = document.getElementById(`scrap-item-${anchor.id}`);
+    if (!el) {
+      return;
+    }
+
+    const currentTop = el.getBoundingClientRect().top;
+    const delta = currentTop - anchor.top;
+    if (Math.abs(delta) > 1) {
+      window.scrollTo(0, Math.max(0, Math.round(window.scrollY + delta)));
+    }
+  }, [filteredScraps, isDesktop, viewMode, mobileExpandedId]);
 
   useLayoutEffect(() => {
     const prevId = prevMobileExpandedIdRef.current;
@@ -353,6 +396,22 @@ const ScrapList = ({
     setSelectedScrapId(null);
   }, [setSelectedScrapId]);
 
+  const captureMobileExpandedAnchor = useCallback(() => {
+    if (isDesktop || viewMode !== "list" || !mobileExpandedId) {
+      mobileFilterAnchorRef.current = null;
+      return;
+    }
+    const el = document.getElementById(`scrap-item-${mobileExpandedId}`);
+    if (!el) {
+      mobileFilterAnchorRef.current = null;
+      return;
+    }
+    mobileFilterAnchorRef.current = {
+      id: mobileExpandedId,
+      top: el.getBoundingClientRect().top,
+    };
+  }, [isDesktop, viewMode, mobileExpandedId]);
+
   const handleSearchChange = useCallback(
     (nextValue) => {
       setSearchTerm(nextValue);
@@ -363,13 +422,55 @@ const ScrapList = ({
     [isDetailExpanded]
   );
 
-  const handleTagClick = useCallback((tag) => {
-    if (!tag) return;
-    setSelectedTag((prev) =>
-      prev && prev.toLowerCase() === tag.toLowerCase() ? null : tag
-    );
+  const handleTagClick = useCallback(
+    (tag) => {
+      if (!tag) return;
+      const nextTag =
+        selectedTag && selectedTag.toLowerCase() === tag.toLowerCase() ? null : tag;
+
+      if (!isDesktop) {
+        if (mobileExpandedId) {
+          const expandedScrap = scraps.find((s) => s.id === mobileExpandedId);
+          const staysInFilter =
+            !nextTag ||
+            Boolean(
+              expandedScrap?.tags?.some(
+                (itemTag) => itemTag?.trim().toLowerCase() === nextTag.toLowerCase()
+              )
+            );
+
+          if (staysInFilter) {
+            captureMobileExpandedAnchor();
+          } else {
+            mobileFilterAnchorRef.current = null;
+            setMobileExpandedId(null);
+            if (typeof window !== "undefined" && window.scrollY > 0) {
+              const prefersReducedMotion = window.matchMedia?.(
+                "(prefers-reduced-motion: reduce)"
+              ).matches;
+              window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
+            }
+          }
+        } else if (typeof window !== "undefined" && window.scrollY > 0) {
+          const prefersReducedMotion = window.matchMedia?.(
+            "(prefers-reduced-motion: reduce)"
+          ).matches;
+          window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
+        }
+      }
+
+      setSelectedTag(nextTag);
+      setIsDetailExpanded(false);
+    },
+    [isDesktop, selectedTag, mobileExpandedId, scraps, captureMobileExpandedAnchor]
+  );
+
+  const handleClearTagFilter = useCallback(() => {
+    if (!selectedTag) return;
+    captureMobileExpandedAnchor();
+    setSelectedTag(null);
     setIsDetailExpanded(false);
-  }, []);
+  }, [selectedTag, captureMobileExpandedAnchor]);
 
   const handleFocusScrap = useCallback(
     (scrap) => {
@@ -583,7 +684,10 @@ const ScrapList = ({
           key={f.key}
           type="button"
           className={`filter-pill ${filterDate === f.key ? "active" : ""}`}
-          onClick={() => setFilterDate(f.key)}
+          onClick={() => {
+            captureMobileExpandedAnchor();
+            setFilterDate(f.key);
+          }}
         >
           {t(f.labelKey)}
         </button>
@@ -594,7 +698,10 @@ const ScrapList = ({
       <button
         type="button"
         className={`filter-pill icon ${statusFilter === "pinned" ? "active" : ""}`}
-        onClick={() => setStatusFilter((prev) => (prev === "pinned" ? "all" : "pinned"))}
+        onClick={() => {
+          captureMobileExpandedAnchor();
+          setStatusFilter((prev) => (prev === "pinned" ? "all" : "pinned"));
+        }}
       >
         <Pin size={12} />
         <span>{t("common.pinned")}</span>
@@ -604,7 +711,7 @@ const ScrapList = ({
   );
 
   const renderTagFilterBar = () => {
-    if (tagStats.length === 0) return null;
+    if (tagStats.length === 0 && !selectedTag) return null;
     return (
       <div className="tag-filter-wrapper">
         <div className="tag-filter-track">
@@ -627,21 +734,28 @@ const ScrapList = ({
             <button
               type="button"
               className={`tag-chip ${!selectedTag ? "active" : ""}`}
-              onClick={() => setSelectedTag(null)}
+              onClick={handleClearTagFilter}
             >
               {t("list.allTags")}
             </button>
-            {tagStats.map((tItem) => {
+            {orderedTagStats.map((tItem) => {
               const isActive = selectedTag?.toLowerCase() === tItem.lower;
               return (
                 <button
                   key={tItem.lower}
                   type="button"
-                  className={`tag-chip ${isActive ? "active" : ""}`}
+                  className={`tag-chip ${isActive ? "active is-selected-tag" : ""}`}
                   onClick={() => handleTagClick(tItem.label)}
+                  title={
+                    isActive
+                      ? t("list.clearTagFilter", { tag: tItem.label })
+                      : t("detail.filterByTag", { tag: tItem.label })
+                  }
+                  aria-pressed={isActive}
                 >
                   <span>#{tItem.label}</span>
                   <span className="tag-chip-count">{tItem.count}</span>
+                  {isActive && <X size={12} className="tag-chip-clear-icon" aria-hidden="true" />}
                 </button>
               );
             })}
@@ -796,6 +910,7 @@ const ScrapList = ({
                       }
                     }}
                     onTagClick={handleTagClick}
+                    activeTag={selectedTag}
                   />
                 ))}
               </div>
@@ -827,6 +942,7 @@ const ScrapList = ({
               scrap={selectedScrap}
               onClose={handleCloseDetail}
               onTagClick={handleTagClick}
+              activeTag={selectedTag}
               isExpanded={effectiveDetailExpanded}
               onToggleExpand={() => setIsDetailExpanded((prev) => !prev)}
               hasPrev={hasPrev}
@@ -919,6 +1035,7 @@ const ScrapList = ({
                     }
                   }}
                   onTagClick={handleTagClick}
+                  activeTag={selectedTag}
                   isMobileExpanded={mobileExpandedId === scrap.id}
                   onToggleMobileExpand={() =>
                     setMobileExpandedId((prev) => (prev === scrap.id ? null : scrap.id))

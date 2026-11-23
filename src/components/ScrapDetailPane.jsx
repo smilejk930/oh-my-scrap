@@ -33,6 +33,7 @@ const ScrapDetailPane = ({
   scrap,
   onClose,
   onTagClick,
+  activeTag = null,
   isExpanded = false,
   onToggleExpand,
   hasPrev = false,
@@ -403,17 +404,28 @@ const ScrapDetailPane = ({
                       </div>
                       {visibleTags.length > 0 && (
                         <div className="detail-hero-tags">
-                          {visibleTags.map((tag, index) => (
-                            <button
-                              key={`${tag}-${index}`}
-                              type="button"
-                              className="detail-tag-chip"
-                              onClick={() => onTagClick?.(tag)}
-                              title={t("detail.filterByTag", { tag })}
-                            >
-                              #{tag}
-                            </button>
-                          ))}
+                          {visibleTags.map((tag, index) => {
+                            const isTagActive = Boolean(
+                              activeTag && activeTag.toLowerCase() === tag.toLowerCase()
+                            );
+                            return (
+                              <button
+                                key={`${tag}-${index}`}
+                                type="button"
+                                className={`detail-tag-chip ${isTagActive ? "active" : ""}`}
+                                onClick={() => onTagClick?.(tag)}
+                                title={
+                                  isTagActive
+                                    ? t("list.clearTagFilter", { tag })
+                                    : t("detail.filterByTag", { tag })
+                                }
+                                aria-pressed={isTagActive}
+                              >
+                                <span>#{tag}</span>
+                                {isTagActive && <X size={11} aria-hidden="true" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
