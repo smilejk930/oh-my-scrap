@@ -8,7 +8,7 @@ const ASK_TIMEOUT_MS = 35000;
 /**
  * URL의 본문 내용을 Cloudflare Worker(/analyze)를 통해 분석하여 요약본과 태그를 생성합니다.
  * @param {string} content - URL에서 추출된 텍스트 내용 (videoUrl이 있으면 보조 컨텍스트로 활용)
- * @param {string} language - 분석 결과 언어 ('en', 'ko', or 'zh')
+ * @param {string} language - 분석 결과 언어 ('en', 'ja', 'ko', or 'zh')
  * @param {string|null} videoUrl - YouTube 영상 URL. 지정 시 Gemini의 비디오 이해 기능으로 영상 자체를 분석.
  * @param {{ contentTypeHint?: string | null, lowResVideo?: boolean }} [options]
  * @returns {Promise<{title: string, tags: string[], contentType: string, fullSummary: string}>}
@@ -92,15 +92,15 @@ export const askMyScraps = async (question, scraps = [], language = "en") => {
   // 질문 토큰과 일치하는 스크랩에 가중치를 부여하고 최신 항목을 함께 포함해 최대 120개 선별
   const rawTokens = cleanQuestion
     .toLowerCase()
-    .split(/[\s,?.!，。？！、；：""''（）()【】[\]]+/)
+    .split(/[\s,?.!，。？！、；：""''（）()【】「」『』・[\]]+/)
     .filter((t) => t.length >= 2);
   const tokenSet = new Set(rawTokens);
   for (const seg of rawTokens) {
-    const hanMatches = seg.match(/[\u4e00-\u9fff]{2,}/g);
-    if (!hanMatches) continue;
-    for (const han of hanMatches) {
-      for (let i = 0; i < han.length - 1; i++) {
-        tokenSet.add(han.slice(i, i + 2));
+    const cjkMatches = seg.match(/[\u3040-\u30ff\u4e00-\u9fff]{2,}/g);
+    if (!cjkMatches) continue;
+    for (const chunk of cjkMatches) {
+      for (let i = 0; i < chunk.length - 1; i++) {
+        tokenSet.add(chunk.slice(i, i + 2));
       }
     }
   }

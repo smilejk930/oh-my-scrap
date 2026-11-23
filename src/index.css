@@ -562,6 +562,7 @@ input:focus {
 /* Language Toggle styles */
 .language-toggle {
   display: flex;
+  max-width: 100%;
   background: rgba(0, 0, 0, 0.05);
   padding: 4px;
   border-radius: 12px;
@@ -2075,8 +2076,8 @@ input:focus {
 
 @media (max-width: 480px) {
   .lang-btn {
-    padding: 6px 10px;
-    font-size: 12.5px;
+    padding: 6px 9px;
+    font-size: 12px;
   }
 }
 

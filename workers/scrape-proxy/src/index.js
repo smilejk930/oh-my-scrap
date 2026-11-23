@@ -28,11 +28,12 @@ const YT_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.
 const YT_VIDEO_ID_ONLY_REGEX = /^[a-zA-Z0-9_-]{11}$/;
 const YT_ALLOWED_TRANSCRIPT_HOSTS = new Set(["www.youtube.com", "youtube.com", "timedtext.youtube.com"]);
 const ALLOWED_CONTENT_TYPES = new Set(["general", "recipe", "tech", "video", "place", "product"]);
-const ALLOWED_LANGUAGES = new Set(["en", "ko", "zh"]);
+const ALLOWED_LANGUAGES = new Set(["en", "ja", "ko", "zh"]);
 const normalizeLanguage = (lang, fallback = "en") => {
   if (typeof lang !== "string") return fallback;
   const lower = lang.trim().toLowerCase();
   if (ALLOWED_LANGUAGES.has(lower)) return lower;
+  if (lower.startsWith("ja-")) return "ja";
   if (lower.startsWith("zh-")) return "zh";
   if (lower.startsWith("ko-")) return "ko";
   if (lower.startsWith("en-")) return "en";
@@ -40,6 +41,7 @@ const normalizeLanguage = (lang, fallback = "en") => {
 };
 const LANGUAGE_LABEL_MAP = {
   en: "English",
+  ja: "Japanese (日本語)",
   ko: "Korean (한국어)",
   zh: "Simplified Chinese (简体中文)",
 };
@@ -552,6 +554,28 @@ const decodeHtmlBuffer = (buffer, contentTypeHeader = "") => {
     }
   }
 
+  if (
+    charset === "shift_jis" ||
+    charset === "shift-jis" ||
+    charset === "sjis" ||
+    charset === "x-sjis" ||
+    charset === "windows-31j"
+  ) {
+    try {
+      return new TextDecoder("shift_jis").decode(buffer);
+    } catch {
+      // fallback to utf-8
+    }
+  }
+
+  if (charset === "euc-jp") {
+    try {
+      return new TextDecoder("euc-jp").decode(buffer);
+    } catch {
+      // fallback to utf-8
+    }
+  }
+
   return new TextDecoder("utf-8", { fatal: false }).decode(buffer);
 };
 
@@ -700,11 +724,12 @@ const rankCaptionTracks = (tracks, preferredLang = "ko") => {
   if (validTracks.length === 0) return [];
 
   const langOrderMap = {
-    en: ["en", "ko", "zh"],
-    ko: ["ko", "en", "zh"],
-    zh: ["zh-hans", "zh-cn", "zh", "en", "ko"],
+    en: ["en", "ja", "ko", "zh"],
+    ja: ["ja", "en", "ko", "zh"],
+    ko: ["ko", "en", "ja", "zh"],
+    zh: ["zh-hans", "zh-cn", "zh", "en", "ja", "ko"],
   };
-  const langOrder = langOrderMap[preferredLang] || ["ko", "en", "zh"];
+  const langOrder = langOrderMap[preferredLang] || ["ko", "en", "ja", "zh"];
   const matchesLang = (track, lang) => {
     const code = String(track?.languageCode || "").toLowerCase();
     return code === lang || code.startsWith(`${lang}-`);
@@ -1300,11 +1325,78 @@ const handleAnalyze = async (request, env, corsHeaders) => {
 
     6) "general": General news, essays, or links not matching the 5 types above
        Write 2-4 concise sentences of plain prose without bracket headers.`,
+    ja: `
+    contentType 分類基準および fullSummary プレーンテキストテンプレート（**、##、\`\`\` などの Markdown 記号は禁止、改行は \\n を使用）：
+    1) "recipe": 料理・レシピの場合（タグに "レシピ" を含める）
+       [料理紹介]
+       料理について1〜2文で紹介します。
+
+       [材料]
+       - 材料1: 分量
+       - 材料2: 分量
+
+       [作り方]
+       1. 最初の工程
+       2. 次の工程
+       （本文にない材料や工程を勝手に作らず、分量不明の場合は「適量」と記載）
+
+    2) "tech": 開発・プログラミング・アーキテクチャ・GitHub・AI 技術記事の場合
+       [核心課題]
+       この記事やツールが解決しようとしている課題を1〜2文で要約します。
+
+       [解決策・アーキテクチャ]
+       中核となる実装方式や動作原理を1〜2文で説明します。
+
+       [重要ポイント]
+       - 重要なキーワード、コマンド、または注意点 1
+       - 重要ポイント 2
+
+       [一言評価]
+       実務での活用価値や結論を1文でまとめます。
+
+    3) "video": YouTube 動画（直接分析または字幕分析）の場合（ただし料理レシピ動画の場合は "recipe" を優先）
+       [3行要点]
+       - 重要なポイント 1
+       - 重要なポイント 2
+       - 重要なポイント 3
+
+       [タイムライン要約]
+       - [MM:SS] 区間ごとの主な内容（字幕や動画に時間情報がある場合は必ず [MM:SS] 形式を維持し、ない場合は流れに沿って「- 内容」と記載）
+
+       [核心インサイト]
+       動画が伝える最終的な結論を1〜2文でまとめます。
+
+    4) "place": グルメ・カフェ・旅行先・展示施設などの紹介の場合
+       [スポット紹介]
+       どんな場所かを1〜2文で要約します。
+
+       [場所・特徴]
+       - 本文で確認できる立地や雰囲気の特徴
+
+       [おすすめ・ヒント]
+       - おすすめメニューや訪問時のヒント
+
+    5) "product": 製品レビュー・比較・購入ガイド・サービス紹介の場合
+       [製品概要]
+       製品の特徴と対象ユーザーを1〜2文で要約します。
+
+       [主なスペック・特徴]
+       - 主なスペックや機能（価格・数値は本文にある場合のみ記載）
+
+       [メリット]
+       - 主な長所
+
+       [デメリット・注意点]
+       - 短所や検討時の注意点
+
+    6) "general": 上記5つに該当しない一般ニュース・エッセイ・記事の場合
+       角括弧ヘッダーを使わず、重要な内容を2〜4文の簡潔で自然な日本語の平文で要約します。`,
   };
   const templatesGuide = templatesGuideByLang[language] || templatesGuideByLang.en;
 
   const tagGuidanceMap = {
     en: "Tags should be common searchable keywords.",
+    ja: "タグは一般的で検索しやすい日本語キーワードを中心に作成してください。",
     ko: "태그는 사회적으로 통용되는 검색하기 쉬운 키워드 위주로 작성하세요.",
     zh: "标签请使用常见、易于搜索的通用中文关键词。",
   };
@@ -1409,15 +1501,20 @@ const handleAsk = async (request, env, corsHeaders) => {
   const fallbackLang = normalizeLanguage(body?.language, "en");
   const responseLang = /[가-힣]/.test(question)
     ? "ko"
-    : /[\u4e00-\u9fff]/.test(question)
-      ? "zh"
-      : fallbackLang;
+    : /[\u3040-\u309f\u30a0-\u30ff]/.test(question)
+      ? "ja"
+      : /[\u4e00-\u9fff]/.test(question)
+        ? fallbackLang === "ja"
+          ? "ja"
+          : "zh"
+        : fallbackLang;
   const rawScraps = Array.isArray(body?.scraps) ? body.scraps.slice(0, 120) : [];
 
   const emptyArchiveAnswerMap = {
+    en: "Your archive has no saved scraps yet to search through.",
+    ja: "アーカイブにまだ保存されたスクラップがないため、回答を見つけられません。",
     ko: "아직 보관함에 저장된 스크랩이 없어 답변을 찾을 수 없습니다.",
     zh: "收藏夹中还没有已保存的内容，无法为您查找答案。",
-    en: "Your archive has no saved scraps yet to search through.",
   };
 
   if (rawScraps.length === 0) {

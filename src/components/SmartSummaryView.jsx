@@ -16,11 +16,11 @@ const VALID_TYPES = new Set(["general", "recipe", "tech", "video", "place", "pro
 
 const inferContentTypeFromSummary = (summary = "") => {
   if (!summary) return "general";
-  if (/\[(?:재료|만드는 법|Ingredients|Instructions|食材|制作步骤)\]/i.test(summary)) return "recipe";
-  if (/\[(?:핵심 문제|해결책·아키텍처|Core Problem|Solution & Architecture|核心问题|解决方案与架构)\]/i.test(summary)) return "tech";
-  if (/\[(?:타임라인 요약|3줄 핵심 요약|Timeline|时间线摘要|三点核心摘要)\]/i.test(summary)) return "video";
-  if (/\[(?:위치·특징|추천 메뉴·팁|Location & Highlights|位置与特色|推荐与贴士)\]/i.test(summary)) return "place";
-  if (/\[(?:핵심 스펙·특징|Key Specs & Features|Pros|核心规格与特点|优点)\]/i.test(summary)) return "product";
+  if (/\[(?:재료|만드는 법|Ingredients|Instructions|食材|制作步骤|材料|作り方)\]/i.test(summary)) return "recipe";
+  if (/\[(?:핵심 문제|해결책·아키텍처|Core Problem|Solution & Architecture|核心问题|解决方案与架构|核心課題|解決策・アーキテクチャ)\]/i.test(summary)) return "tech";
+  if (/\[(?:타임라인 요약|3줄 핵심 요약|Timeline|时间线摘要|三点核心摘要|タイムライン要約|3行要点)\]/i.test(summary)) return "video";
+  if (/\[(?:위치·특징|추천 메뉴·팁|Location & Highlights|位置与特色|推荐与贴士|場所・特徴|おすすめ・ヒント)\]/i.test(summary)) return "place";
+  if (/\[(?:핵심 스펙·특징|Key Specs & Features|Pros|核心规格与特点|优点|主なスペック・特徴|メリット)\]/i.test(summary)) return "product";
   return "general";
 };
 
@@ -58,7 +58,10 @@ const isChecklistSection = (header = "") => {
     lower.includes("配料") ||
     lower.includes("制作步骤") ||
     lower.includes("做法") ||
-    lower.includes("步骤")
+    lower.includes("步骤") ||
+    lower.includes("材料") ||
+    lower.includes("作り方") ||
+    lower.includes("手順")
   );
 };
 
