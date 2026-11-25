@@ -648,6 +648,61 @@ input:focus {
   align-items: center;
 }
 
+.lang-select-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lang-select-pill:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.lang-select-pill:focus-within {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.25);
+}
+
+.lang-select-native {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  padding: 9px 30px 9px 32px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.25;
+  border-radius: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.lang-select-native:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.lang-select-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--accent-color);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.lang-select-chevron {
+  position: absolute;
+  right: 10px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
 .dialog-url-row {
   display: flex;
   gap: 8px;

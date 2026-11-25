@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Loader2, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, X, Globe, ChevronDown } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import {
@@ -15,9 +15,9 @@ import { useTranslation } from "../i18n/useTranslation";
 import { LANGUAGE_OPTIONS } from "../i18n/translations";
 
 const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
-  const { preferredLanguage, useAi } = useAuth();
+  const { preferredLanguage } = useAuth();
   const { t } = useTranslation();
-  const [localUseAi, setLocalUseAi] = useState(useAi);
+  const [localUseAi, setLocalUseAi] = useState(true);
   const [localLang, setLocalLang] = useState(preferredLanguage);
   const [analyzing, setAnalyzing] = useState(false);
   const [status, setStatus] = useState("");
@@ -198,20 +198,35 @@ const ReAnalyzeDialog = ({ scrap, onClose, onSuccess }) => {
               AI
             </button>
           </div>
-          <div className="language-toggle" title={t("dialog.aiLangTooltip")}>
-            {LANGUAGE_OPTIONS.map((opt) => (
-              <button
-                key={opt.code}
-                type="button"
-                className={`lang-btn ${localLang === opt.code ? "active" : ""}`}
-                aria-pressed={localLang === opt.code}
-                onClick={() => setLocalLang(opt.code)}
-                disabled={analyzing}
+          <AnimatePresence initial={false}>
+            {localUseAi && (
+              <motion.div
+                key="reanalyze-lang-select"
+                className="lang-select-pill"
+                title={t("dialog.aiLangTooltip")}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.16 }}
               >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+                <Globe size={14} className="lang-select-icon" aria-hidden="true" />
+                <select
+                  className="lang-select-native"
+                  value={localLang}
+                  onChange={(e) => setLocalLang(e.target.value)}
+                  disabled={analyzing}
+                  aria-label={t("dialog.aiLangTooltip")}
+                >
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="lang-select-chevron" aria-hidden="true" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Status */}

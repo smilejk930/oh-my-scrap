@@ -12,7 +12,6 @@ import {
 } from "../services/scraper";
 import { analyzeContent } from "../services/gemini";
 import { useTranslation } from "../i18n/useTranslation";
-import { LANGUAGE_OPTIONS } from "../i18n/translations";
 import ReAnalyzeDialog from "./ReAnalyzeDialog";
 import {
   X,
@@ -33,7 +32,6 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
   const { t } = useTranslation();
 
   const [url, setUrl] = useState(initialUrl);
-  const [localLang, setLocalLang] = useState(preferredLanguage);
   const [allowDuplicate, setAllowDuplicate] = useState(false);
   const [clipboardSuggestion, setClipboardSuggestion] = useState(null);
   const [reAnalyzeTarget, setReAnalyzeTarget] = useState(null);
@@ -154,7 +152,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
         useVideoMultimodal,
         lowResVideo,
         contentTypeHint,
-      } = await scrapeUrl(url, { checkDuration: useAi, language: localLang });
+      } = await scrapeUrl(url, { checkDuration: useAi, language: preferredLanguage });
 
       let analysis;
       if (!useAi) {
@@ -187,7 +185,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
         );
         analysis = await analyzeContent(
           content,
-          localLang,
+          preferredLanguage,
           useVideoMultimodal ? url : null,
           { contentTypeHint, lowResVideo }
         );
@@ -270,7 +268,7 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
             </button>
           </div>
 
-          {/* Controls: AI toggle + Language toggle */}
+          {/* Controls: AI toggle */}
           <div className="dialog-controls">
             <div className="language-toggle" title={t("dialog.aiToggleTooltip")}>
               <button
@@ -289,20 +287,6 @@ const AddScrapDialog = ({ onClose, initialUrl = "", onViewExisting }) => {
               >
                 AI
               </button>
-            </div>
-            <div className="language-toggle" title={t("dialog.aiLangTooltip")}>
-              {LANGUAGE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.code}
-                  type="button"
-                  className={`lang-btn ${localLang === opt.code ? "active" : ""}`}
-                  aria-pressed={localLang === opt.code}
-                  onClick={() => setLocalLang(opt.code)}
-                  disabled={loading}
-                >
-                  {opt.label}
-                </button>
-              ))}
             </div>
           </div>
 
